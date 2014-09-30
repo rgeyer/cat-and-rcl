@@ -47,15 +47,18 @@ define terminator($instances_hours_old_param,$skip_tag_param) do
   concurrent do
     sub task_name:'instances' do
       concurrent foreach @cloud in rs.clouds.get() do
-        concurrent foreach @instance in @cloud.instances().get() do
+        concurrent foreach @instance in @cloud.instances().get(filter: ['state<>inactive','state<>terminated']) do
           $instances_hours_old_seconds = (to_n($instances_hours_old_param)*60)*60
           call get_tags_for_resource(@instance) retrieve $tags
+          if type($tags) == 'null'
+            $tags = []
+          end
           $created_at = to_n(@instance.created_at)
           $created_delta = to_n(now()) - $created_at
 
           # TODO: This is comparing different data types, left hand is datetime, right hand is int/number
           $is_old_enough = $created_delta > $instances_hours_old_seconds
-          $is_not_tagged = logic_not(contains?($tags, $skip_tag_param))
+          $is_not_tagged = logic_not(contains?($tags, [$skip_tag_param]))
           if $is_old_enough & $is_not_tagged
             call log('Would terminate '+@instance.name+' because it is older than '+$instance_hours_old_seconds+' seconds, and is not tagged with'+$skip_tag_param,'None')
           else
