@@ -29,10 +29,7 @@ define get_clouds_by_rel($rel) return @clouds do
   @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
     $rels = select(@cloud.links, {'rel': $rel})
     if size($rels) > 0
-      call log(@cloud.name+' supports '+$rel,'None')
       @cloud_with_rel = @cloud
-    else
-      call log(@cloud.name+' does not support '+$rel,'None')
     end
   end
 end
@@ -52,9 +49,9 @@ define terminator($instances_hours_old_param,$skip_tag_param) do
       concurrent foreach @cloud in rs.clouds.get() do
         concurrent foreach @instance in @cloud.instances().get() do
           $instances_hours_old_seconds = (to_n($instances_hours_old_param)*60)*60
-          call get_tags_by_resource(@instance) retrieve $tags
-          $created_at = @instance.created_at
-          $created_delta = now() - to_n($created_at)
+          call get_tags_for_resource(@instance) retrieve $tags
+          $created_at = to_n(@instance.created_at)
+          $created_delta = to_n(now()) - $created_at
 
           # TODO: This is comparing different data types, left hand is datetime, right hand is int/number
           $is_old_enough = $created_delta > $instances_hours_old_seconds
