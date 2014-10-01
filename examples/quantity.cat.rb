@@ -64,7 +64,7 @@ define get_array_of_size($size) return $array do
     $qty = $qty + 1
   end
 
-  $array = $qty_array
+  $array = $qty_ary
 end
 
 define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return @base_server_res,@base_array_res do
@@ -83,7 +83,7 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
     provision(@base_server_res)
     concurrent foreach $qty in $qty_ary do
       @new_res = @base_server_res.clone()
-      @new_res.update(name: 'Cloned #'+$qty)
+      @new_res.update(server: {name: 'Cloned #'+$qty})
       # Change other things like inputs here
       # Probably launch and wait too?
     end
@@ -105,5 +105,5 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
       provision(@resource_definition)
     end
   end
-  
+
 end
