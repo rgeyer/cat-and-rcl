@@ -7,18 +7,9 @@ operation 'launch' do
   definition 'launch'
 end
 
-# From ../definitions/tags.cat.rb
-define get_tags_for_resource(@resource) return $tags do
-  $tags_response = rs.tags.by_resource(resource_hrefs: [@resource.href])
-  $inner_tags_ary = first(first($tags_response))['tags']
-  $tags = concurrent map $current_tag in $inner_tags_array return $tag do
-    $tag = $current_tag['name']
-  end
-end
+#include:../definitions/sys.cat.rb
 
-define log($message, $notify) do
-  rs.audit_entries.create(notify: $notify, audit_entry: {auditee_href: @@deployment.href, summary: $message})
-end
+#include:../definitions/tags.cat.rb
 
 define launch() do
   $tags = rs.tags.by_tag(resource_type:'instances',tags: ['rs_monitoring:state=active'])
@@ -150,4 +141,7 @@ define launch() do
   end
 
   call log(to_json($new_tags),'None')
+
+  call get_tags_for_resource($first_resource_href) retrieve $tags
+  call log(to_json($tags),'None')
 end

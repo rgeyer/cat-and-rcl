@@ -52,20 +52,7 @@ operation 'launch' do
   definition 'launch'
 end
 
-define log($message, $notify) do
-  rs.audit_entries.create(notify: $notify, audit_entry: {auditee_href: @@deployment.href, summary: $message})
-end
-
-define get_array_of_size($size) return $array do
-  $qty = 1
-  $qty_ary = []
-  while $qty <= to_n($size) do
-    $qty_ary << $qty
-    $qty = $qty + 1
-  end
-
-  $array = $qty_ary
-end
+#include:../definitions/sys.cat.rb
 
 define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return @base_server_res,@base_array_res do
   call get_array_of_size($qty_param) retrieve $qty_ary

@@ -19,30 +19,9 @@ operation 'launch' do
   definition 'terminator'
 end
 
-# From ../definitions/sys.cat.rb
-define log($message, $notify) do
-  rs.audit_entries.create(notify: $notify, audit_entry: {auditee_href: @@deployment.href, summary: $message})
-end
+#include:../definitions/sys.cat.rb
 
-# From ../definitions/sys.cat.rb
-define get_clouds_by_rel($rel) return @clouds do
-  @@clouds = rs.clouds.empty()
-  concurrent foreach @cloud in rs.clouds.get() do
-    $rels = select(@cloud.links, {'rel': $rel})
-    if size($rels) > 0
-      @@clouds = @@clouds + @cloud
-    end
-  end
-end
-
-# From ../definitions/tags.cat.rb
-define get_tags_for_resource(@resource) return $tags do
-  $tags_response = rs.tags.by_resource(resource_hrefs: [@resource.href])
-  $inner_tags_ary = first(first($tags_response))['tags']
-  $tags = concurrent map $current_tag in $inner_tags_array return $tag do
-    $tag = $current_tag['name']
-  end
-end
+#include:../definitions/tags.cat.rb
 
 define terminator($instances_hours_old_param,$skip_tag_param) do
   concurrent do
@@ -54,6 +33,7 @@ define terminator($instances_hours_old_param,$skip_tag_param) do
           if @instance.state != 'inactive' & @instance.state != 'terminated'
             $instances_hours_old_seconds = (to_n($instances_hours_old_param)*60)*60
             call get_tags_for_resource(@instance) retrieve $tags
+            call log('Tags for '+@instance.name+' (in main) was '+to_json($tags),'None')
             if type($tags) == 'null'
               $tags = []
             end
@@ -65,7 +45,7 @@ define terminator($instances_hours_old_param,$skip_tag_param) do
             if $is_old_enough & $is_not_tagged
               call log('Would terminate '+@instance.name+' because it is older than '+$instances_hours_old_seconds+' seconds, and is not tagged with '+$skip_tag_param,'None')
             else
-              call log('Leaving '+@instance.name+' alone because it is not older than '+$instances_hours_old_seconds+' seconds, or is not tagged with '+$skip_tag_param,'None')
+              call log('Leaving '+@instance.name+' alone because it is not older than '+$instances_hours_old_seconds+' seconds, or is tagged with '+$skip_tag_param,'None')
             end
           end
         end
