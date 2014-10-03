@@ -11,7 +11,7 @@ end
 parameter 'method_param' do
   type 'string'
   label 'Method'
-  allowed_values 'array','clone','multiprovision','raw'
+  allowed_values 'array','clone','multiprovision','rawdefinition','realraw'
 end
 
 resource 'base_server_res', type: 'server' do
@@ -61,9 +61,14 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
   end
 
   if $method_param == 'multiprovision'
-    concurrent foreach $qty in $qty_ary do
-      provision(@base_server_res)
-    end
+    # Possible after 10/8/2014
+    # concurrent foreach $qty in $qty_ary do
+    #   $definition_hash = to_object(@base_server_res)
+    #   $definition_hash['fields']['server']['name'] = 'foo-'+to_s($qty)
+    #   # Change other things like inputs here
+    #   @new_def = $definition_hash
+    #   provision(@new_def)
+    # end
   end
 
   if $method_param == 'clone'
@@ -72,11 +77,12 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
       @new_res = @base_server_res.clone()
       @new_res.update(server: {name: 'Cloned #'+$qty})
       # Change other things like inputs here
-      # Probably launch and wait too?
+      @new_res.launch()
+      sleep_while(@new_res.state != 'operational')
     end
   end
 
-  if $method_param == 'raw'
+  if $method_param == 'rawdefinition'
     $params = {
       'instance' => {
         'cloud_href' => '/api/clouds/1',
@@ -93,4 +99,24 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
     end
   end
 
+  if $method_param == 'realraw'
+    $params = {
+      'server' => {
+        'deployment_href' => @@deployment.href,
+        'instance' => {
+          'cloud_href' => '/api/clouds/1',
+          'ssh_key_href' => '/api/clouds/1/ssh_keys/B393T34EO2K90',
+          'security_group_hrefs' => ['/api/clouds/1/security_groups/7OSUUQ36RMKOP'],
+          'server_template_href' => '/api/server_templates/341896004'
+        }
+      }
+    }
+    concurrent foreach $qty in $qty_ary do
+      $params['server']['name'] = 'foo-'+to_s($qty)
+      # Change other things like inputs here
+      @server = rs.servers.create($params)
+      @server.launch()
+      sleep_while(@server.state != 'operational')
+    end
+  end
 end
