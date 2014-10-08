@@ -1,3 +1,3 @@
-name 'UTF-8 Test'
+name "UTF-8 Test"
 rs_ca_ver 20131202
-short_description 'Caché'
+short_description "Caché"

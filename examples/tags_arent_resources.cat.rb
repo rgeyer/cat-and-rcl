@@ -1,10 +1,10 @@
-name 'tags_arent_resources'
+name "tags_arent_resources"
 rs_ca_ver 20131202
-short_description "Tags aren't resources, they're hashes"
+short_description "Tags aren"t resources, they"re hashes"
 
-operation 'launch' do
-  description 'Do the stuff'
-  definition 'launch'
+operation "launch" do
+  description "Do the stuff"
+  definition "launch"
 end
 
 #include:../definitions/sys.cat.rb
@@ -12,8 +12,8 @@ end
 #include:../definitions/tags.cat.rb
 
 define launch() do
-  $tags = rs.tags.by_tag(resource_type:'instances',tags: ['rs_monitoring:state=active'])
-  call log(to_json($tags),'None')
+  $tags = rs.tags.by_tag(resource_type:"instances",tags: ["rs_monitoring:state=active"])
+  call log(to_json($tags),"None")
   # Results in;
   # [
   #   [
@@ -42,7 +42,7 @@ define launch() do
   #   ]
   # ]
 
-  call log(to_json(first(first($tags))),'None')
+  call log(to_json(first(first($tags))),"None")
   # Results in;
   # {
   #   "tags":[
@@ -67,13 +67,13 @@ define launch() do
   #   ]
   # }
 
-  $first_resource_href = first(first(first($tags))['links'])['href']
-  call log($first_resource_href,'None')
+  $first_resource_href = first(first(first($tags))["links"])["href"]
+  call log($first_resource_href,"None")
   # Results in;
   # /api/clouds/2175/instances/EQD8A7OTNANSK
 
   $tags = rs.tags.by_resource(resource_hrefs: [$first_resource_href])
-  #call log(to_json($tags),'None')
+  #call log(to_json($tags),"None")
   # The logging actually breaks, for some reason but it would result in;
   # [
   #   [
@@ -111,7 +111,7 @@ define launch() do
   #   ]
   # ]
 
-  #call log(to_json(first(first($tags))['tags']),'None')
+  #call log(to_json(first(first($tags))["tags"]),"None")
   # This log also fails with an error that audit summary is in the wrong format;
   # [
   #   {
@@ -135,13 +135,13 @@ define launch() do
   # ]
 
 
-  $tags_ary = first(first($tags))['tags']
+  $tags_ary = first(first($tags))["tags"]
   $new_tags = concurrent map $current_tag in $tags_ary return $tag do
-    $tag = $current_tag['name']
+    $tag = $current_tag["name"]
   end
 
-  call log(to_json($new_tags),'None')
+  call log(to_json($new_tags),"None")
 
   call get_tags_for_resource($first_resource_href) retrieve $tags
-  call log(to_json($tags),'None')
+  call log(to_json($tags),"None")
 end

@@ -1,10 +1,10 @@
-name 'datetime-arithmetic'
+name "datetime-arithmetic"
 rs_ca_ver 20131202
-short_description 'Arithmetic operations on datetime objects seems to break RCL completely'
+short_description "Arithmetic operations on datetime objects seems to break RCL completely"
 
-operation 'launch' do
-  description 'Do the stuff'
-  definition 'launch'
+operation "launch" do
+  description "Do the stuff"
+  definition "launch"
 end
 
 define launch() do

@@ -1,10 +1,10 @@
-name 'nil-maps'
+name "nil-maps"
 rs_ca_ver 20131202
-short_description 'Maps which return no values result in a null return value, rather than an expected empty array (or resource collection)'
+short_description "Maps which return no values result in a null return value, rather than an expected empty array (or resource collection)"
 
-operation 'launch' do
-  description 'Do the stuff'
-  definition 'launch'
+operation "launch" do
+  description "Do the stuff"
+  definition "launch"
 end
 
 define log($message, $notify) do
@@ -16,10 +16,10 @@ define launch() do
   $foo = concurrent map $bar in $ary return $baz do
 
   end
-  call log('Map on an array which returns no values results in ('+to_json($foo)+') though I\'d expect it to be an empty array','None')
+  call log("Map on an array which returns no values results in ("+to_json($foo)+") though I\"d expect it to be an empty array","None")
 
   @clouds = concurrent map @cloud in rs.clouds.get() return @selected_cloud do
 
   end
-  call log('Map on a resource collection of rs.clouds, which returns no values results in ('+type(@clouds)+') which is much better than null','None')
+  call log("Map on a resource collection of rs.clouds, which returns no values results in ("+type(@clouds)+") which is much better than null","None")
 end

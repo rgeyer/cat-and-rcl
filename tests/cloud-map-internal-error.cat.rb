@@ -1,10 +1,10 @@
-name 'cloud-map-internal-error'
+name "cloud-map-internal-error"
 rs_ca_ver 20131202
-short_description 'Strange internal error when performing map on clouds'
+short_description "Strange internal error when performing map on clouds"
 
-operation 'launch' do
-  description 'Do the stuff'
-  definition 'launch'
+operation "launch" do
+  description "Do the stuff"
+  definition "launch"
 end
 
 define log($message, $notify) do
@@ -13,8 +13,8 @@ end
 
 define get_clouds_by_rel($rel) return @clouds do
   @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
-    #$rels = select(@cloud.links, {'rel': $rel})
-    #call log('Attempting to match '+$rel+' resulted in '+to_json($rels),'None')
+    #$rels = select(@cloud.links, {"rel": $rel})
+    #call log("Attempting to match "+$rel+" resulted in "+to_json($rels),"None")
     #if size($rels) > 0
       # No filtering, just return it..
       @cloud_with_rel = @cloud
@@ -23,7 +23,7 @@ define get_clouds_by_rel($rel) return @clouds do
 end
 
 define launch() do
-  call get_clouds_by_rel('volumes') retrieve @clouds_with_volume_support
+  call get_clouds_by_rel("volumes") retrieve @clouds_with_volume_support
 end
 
 # Results in;
@@ -39,6 +39,6 @@ end
 #     |   @cloud_with_rel = @cloud
 #     end
 # Summary:
-#   Error code: 3h30p1w7g6blj undefined method `+' for nil:NilClass
+#   Error code: 3h30p1w7g6blj undefined method `+" for nil:NilClass
 # Resolution:
 #   Contact support and report error code provided in summary

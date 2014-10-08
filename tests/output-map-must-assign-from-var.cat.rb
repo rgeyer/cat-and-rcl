@@ -1,4 +1,4 @@
-name 'output-map-must-assign-from-var'
+name "output-map-must-assign-from-var"
 rs_ca_ver 20131202
 short_description <<EOF
 Having an output mapping on a definition which does not get assigned from a
@@ -26,12 +26,12 @@ output "baz" do
   label "baz"
 end
 
-operation 'launch' do
-  description 'launch'
-  definition 'launch'
+operation "launch" do
+  description "launch"
+  definition "launch"
   output_mappings do {
-    $foo => null, # This will cause it, on it's own
-    $bar => '', # This too
+    $foo => null, # This will cause it, on it"s own
+    $bar => "", # This too
     $baz => $retval, # This is the only acceptable syntax
   } end
 end
