@@ -61,14 +61,16 @@ define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return 
   end
 
   if $method_param == "multiprovision"
-    # Possible after 10/8/2014
-    # concurrent foreach $qty in $qty_ary do
-    #   $definition_hash = to_object(@base_server_res)
-    #   $definition_hash["fields"]["server"]["name"] = "foo-"+to_s($qty)
-    #   # Change other things like inputs here
-    #   @new_def = $definition_hash
-    #   provision(@new_def)
-    # end
+    @@base_server_res = rs.servers.empty()
+    $$definition_hash = to_object(@base_server_res)
+    concurrent foreach $qty in $qty_ary do
+      $definition_hash = $$definition_hash
+      $definition_hash["fields"]["name"] = "foo-"+to_s($qty)
+      # Change other things like inputs here
+      @new_def = $definition_hash
+      provision(@new_def)
+    end
+    @base_server_res = @@base_server_res
   end
 
   if $method_param == "clone"

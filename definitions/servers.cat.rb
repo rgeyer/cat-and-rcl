@@ -30,16 +30,17 @@ end
 # Launches a server and waits for it to become "operational" or "stranded"
 #
 # @param @server [ServerResourceCollection] The server(s) to launch and wait for
-# @param $timeout [String] the desired timeout in the form specified by
-#   (http://support.rightscale.com/12-Guides/Cloud_Workflow_Developer_Guide/04_Attributes_and_Error_Handling#Timeouts)
-#   Also supports "none" for no timeout
+# @param $timeout [String] the desired timeout in the form described in RCL
+#   documentation.  Also supports "none" for no timeout
+#
+# @see http://support.rightscale.com/12-Guides/Cloud_Workflow_Developer_Guide/04_Attributes_and_Error_Handling#Timeouts RCL Documentation
 define launch_and_wait(@server, $timeout) do
   @server.launch()
   if $timeout == "none"
-    sleep_while(!contains?(@new_res.state,["operational","stranded"]))
+    sleep_while(!any?(["operational","stranded"],@server.state))
   else
     sub timeout: $timeout do
-      sleep_while(!contains?(@new_res.state,["operational","stranded"]))
+      sleep_while(!any?(["operational","stranded"],@server.state))
     end
   end
 end

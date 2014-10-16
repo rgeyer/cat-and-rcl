@@ -1,6 +1,6 @@
 name "tags_arent_resources"
 rs_ca_ver 20131202
-short_description "Tags aren"t resources, they"re hashes"
+short_description "Tags aren't resources, they're hashes"
 
 operation "launch" do
   description "Do the stuff"
