@@ -8,6 +8,12 @@ resource "base_server_res", type: "server" do
   ssh_key "default"
   security_groups "default"
   server_template find("Base ServerTemplate for Linux (RSB) (v13.5.5-LTS)", revision: 17)
+  inputs do {
+    "sys_firewall/rule/ip_address" => "text:any",
+    "chef/client/version" => "text:11.12.4",
+    "block_device/ephemeral/vg_data_percentage" => "text:100",
+    "rightscale/timezone" => "text:UTC"
+  } end
 end
 
 operation "launch" do

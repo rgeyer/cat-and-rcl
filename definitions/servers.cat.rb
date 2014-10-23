@@ -12,19 +12,15 @@ define server_definition_to_media_type(@server) return $media_type do
     "optimized"
   ]
   $definition_hash = to_object(@server)
-  $media_type = {}
+  $media_type = {"instance": {}}
   $instance_hash = {}
   foreach $key in keys($definition_hash["fields"]) do
-    call log_with_details("Key "+$key, $key+"="+to_json($definition_hash["fields"][$key]), "None")
     if contains?($top_level_properties, [$key])
-      $media_type[$key] = $definition_hash["fields"][$key]
+      $media_type[$key] = from_json($definition_hash["fields"][$key])
     else
-      $instance_hash[$key] = $definition_hash["fields"][$key]
+      $media_type["instance"][$key] = from_json($definition_hash["fields"][$key])
     end
   end
-  # TODO: Should be able to assign this directly in the "else" block above once
-  # https://bookiee.rightscale.com/browse/SS-739 is fixed
-  $media_type["instance"] = $instance_hash
 end
 
 # Launches a server and waits for it to become "operational" or "stranded"
