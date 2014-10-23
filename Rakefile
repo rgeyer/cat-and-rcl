@@ -5,6 +5,7 @@ require 'rake'
 require 'json'
 require 'yaml'
 require 'logger'
+require 'rest-client'
 
 # Validates that the specified file exists, raising an error if it does not.
 # Then reads the file into a string which is returned
