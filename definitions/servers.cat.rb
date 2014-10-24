@@ -33,10 +33,10 @@ end
 define launch_and_wait(@server, $timeout) do
   @server.launch()
   if $timeout == "none"
-    sleep_while(!any?(["operational","stranded"],@server.state))
+    sleep_until(@server.state =~ "^(operational|stranded.*|error)")
   else
     sub timeout: $timeout do
-      sleep_while(!any?(["operational","stranded"],@server.state))
+      sleep_until(@server.state =~ "^(operational|stranded.*|error)")
     end
   end
 end
