@@ -55,7 +55,7 @@ end
 #include:../definitions/sys.cat.rb
 
 define launch(@base_server_res,@base_array_res,$qty_param,$method_param) return @base_server_res,@base_array_res do
-  call get_array_of_size($qty_param) retrieve $qty_ary
+  call sys_get_array_of_size($qty_param) retrieve $qty_ary
   if $method_param == "array"
     provision(@base_array_res)
   end

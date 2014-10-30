@@ -19,6 +19,9 @@ define launch() do
     end
   end
 
-  call log("Result has "+size($result)+" items, but expected only 1","None")
-  call log("Result looks like "+to_json($result),"None")
+  $size = size($result)
+  if $size != 1
+    call sys_log("Result of concurrent map on array".{detail: to_json($result)})
+    raise "Result has "+$size+" items, but expected only 1"
+  end
 end

@@ -21,7 +21,7 @@ end
 
 #include:../definitions/sys.cat.rb
 
-#include:../definitions/tags.cat.rb
+#include:../definitions/tag.cat.rb
 
 define terminator($instances_hours_old_param,$skip_tag_param) do
   concurrent do
@@ -39,17 +39,17 @@ define terminator($instances_hours_old_param,$skip_tag_param) do
           $is_old_enough = $created_delta > $instances_hours_old_seconds
           $is_not_tagged = logic_not(contains?($tags, [$skip_tag_param]))
           if $is_old_enough & $is_not_tagged
-            call log("Would terminate "+@instance.name+" because it is older than "+$instances_hours_old_seconds+" seconds, and is not tagged with "+$skip_tag_param,"None")
+            call sys_log("Would terminate "+@instance.name+" because it is older than "+$instances_hours_old_seconds+" seconds, and is not tagged with "+$skip_tag_param,{})
           else
-            call log("Leaving "+@instance.name+" alone because it is not older than "+$instances_hours_old_seconds+" seconds, or is tagged with "+$skip_tag_param,"None")
+            call sys_log("Leaving "+@instance.name+" alone because it is not older than "+$instances_hours_old_seconds+" seconds, or is tagged with "+$skip_tag_param,{})
           end
         end
       end
     end
 
     sub task_name:"volumes" do
-      call get_clouds_by_rel("volumes") retrieve @clouds
-      call log("Clouds with volume support is "+size(@clouds),"None")
+      call sys_get_clouds_by_rel("volumes") retrieve @clouds
+      call sys_log("Clouds with volume support is "+size(@clouds),{})
     end
 
     sub task_name:"snapshots" do

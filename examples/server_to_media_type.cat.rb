@@ -23,12 +23,12 @@ end
 
 #include:../definitions/sys.cat.rb
 
-#include:../definitions/servers.cat.rb
+#include:../definitions/server.cat.rb
 
 define launch(@base_server_res) return @base_server_res do
   call server_definition_to_media_type(@base_server_res) retrieve $media_type
-  call log_with_details("Converted Definition", to_json($media_type), "None")
+  call sys_log("Converted Definition", {detail: to_json($media_type)})
   @new_server = rs.servers.create(server: $media_type)
-  call launch_and_wait(@new_server, "1h")
+  call server_launch_and_wait(@new_server, "1h")
   @base_server_res = @new_server
 end

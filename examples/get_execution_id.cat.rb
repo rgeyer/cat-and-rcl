@@ -9,9 +9,9 @@ end
 
 #include:../definitions/sys.cat.rb
 
-#include:../definitions/tags.cat.rb
+#include:../definitions/tag.cat.rb
 
 define launch() do
-  call get_execution_id() retrieve $execution_id
-  call log("The execution ID is "+$execution_id,"None")
+  call sys_get_execution_id() retrieve $execution_id
+  call sys_log("The execution ID is "+$execution_id,{})
 end

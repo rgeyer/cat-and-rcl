@@ -2,6 +2,8 @@ name "RS1_3Tier"
 rs_ca_ver 20131202
 short_description "RS1_3Tier"
 
+#include:../definitions/run_executable.cat.rb
+
 mapping "cloud_to_stuff" do {
   "AWS" => {
     "instance_type" => "m3.medium"
@@ -67,8 +69,8 @@ define launch(@db, @lb1, @lb2, @app_array) return @db, @lb1, @lb2, @app_array do
     provision(@@local_app_array)
   end
 
-  call run_rightscript_by_href(@@local_db, "/api/right_scripts/525054004")
-  call run_rightscript_by_href(@@local_db, "/api/right_scripts/525050004")
+  call run_executable(@@local_db, {rightscript: {href: "/api/right_scripts/525054004"}}) retrieve @task
+  call run_executable(@@local_db, {rightscript: {href: "/api/right_scripts/525050004"}}) retrieve @task
 
   @db = @@local_db
   @lb1 = @@local_lb1

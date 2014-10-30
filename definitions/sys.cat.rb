@@ -4,7 +4,7 @@
 # @param $size [int] the desired number of elements in the returned array
 #
 # @return [Array] a 1 indexed array of the specified size
-define get_array_of_size($size) return $array do
+define sys_get_array_of_size($size) return $array do
   $qty = 1
   $qty_ary = []
   while $qty <= to_n($size) do
@@ -15,26 +15,33 @@ define get_array_of_size($size) return $array do
   $array = $qty_ary
 end
 
-# Logs a message in the "summary" field of an audit entry (limited to 255 char)
-# with the CloudApp deployment as the auditee_href
-#
-# @param $message [String] the message to write in the "summary" field of an audit entry
-# @param $notify [String] the event notification category, one of (None|Notification|Security|Error)
-#
-# @see http://reference.rightscale.com/api1.5/resources/ResourceAuditEntries.html#create
-define log($message, $notify) do
-  rs.audit_entries.create(notify: $notify, audit_entry: {auditee_href: @@deployment.href, summary: $message})
-end
-
-# Logs a message as an audit entry with the CloudApp deployment as the auditee_href
+# Creates a "log" entry in the form of an audit entry.  The target of the audit
+# entry defaults to the deployment created by the CloudApp, but can be specified
+# with the "auditee_href" option.
 #
 # @param $summary [String] the value to write in the "summary" field of an audit entry
-# @param $details [String] the message to write in the "detail" field of an audit entry
-# @param $notify [String] the event notification category, one of (None|Notification|Security|Error)
+# @param $options [Hash] a hash of options where the possible keys are;
+#   * detail [String] the message to write to the "detail" field of the audit entry. Default: ""
+#   * notify [String] the event notification catgory, one of (None|Notification|Security|Error).  Default: None
+#   * auditee_href [String] the auditee_href (target) for the audit entry. Default: @@deployment.href
 #
 # @see http://reference.rightscale.com/api1.5/resources/ResourceAuditEntries.html#create
-define log_with_details($summary, $details, $notify) do
-  rs.audit_entries.create(notify: $notify, audit_entry: {auditee_href: @@deployment.href, summary: $summary, detail: $details})
+define sys_log($summary,$options) do
+  $default_options = {
+    detail: "",
+    notify: "None",
+    auditee_href: @@deployment.href
+  }
+
+  $merged_options = $options + $default_options
+  rs.audit_entries.create(
+    notify: $merged_options["notify"],
+    audit_entry: {
+      auditee_href: $merged_options["auditee_href"],
+      summary: $summary,
+      detail: $merged_options["detail"]
+    }
+  )
 end
 
 # Returns a resource collection containing clouds which have the specified relationship.
@@ -45,7 +52,7 @@ end
 # @return [CloudResourceCollection] The clouds which have the specified relationship
 #
 # @see http://reference.rightscale.com/api1.5/media_types/MediaTypeCloud.html
-define get_clouds_by_rel($rel) return @clouds do
+define sys_get_clouds_by_rel($rel) return @clouds do
   @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
     $rels = select(@cloud.links, {"rel": $rel})
     if size($rels) > 0
@@ -59,7 +66,7 @@ end
 # selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
 #
 # @return [String] The execution ID of the current cloud app
-define get_execution_id() return $execution_id do
+define sys_get_execution_id() return $execution_id do
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
   $href_tag = concurrent map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"

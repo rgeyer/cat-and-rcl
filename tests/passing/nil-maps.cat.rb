@@ -16,10 +16,10 @@ define launch() do
   $foo = concurrent map $bar in $ary return $baz do
 
   end
-  call log("Map on an array which returns no values results in ("+to_json($foo)+") though I\"d expect it to be an empty array","None")
+  call sys_log("Map on an array which returns no values results in ("+to_json($foo)+") though I\"d expect it to be an empty array",{})
 
   @clouds = concurrent map @cloud in rs.clouds.get() return @selected_cloud do
 
   end
-  call log("Map on a resource collection of rs.clouds, which returns no values results in ("+type(@clouds)+") which is much better than null","None")
+  call sys_log("Map on a resource collection of rs.clouds, which returns no values results in ("+type(@clouds)+") which is much better than null",{})
 end

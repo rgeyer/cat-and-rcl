@@ -15,7 +15,7 @@ define launch() do
   concurrent foreach @cloud in rs.clouds.get() do
     # Filter syntax per -http://support.rightscale.com/12-Guides/Cloud_Workflow_Developer_Guide/01_Resources#Locating_Resources_of_a_Given_Type
     concurrent foreach @instance in @cloud.instances().get(filter: ["state<>inactive","state<>terminated"]) do
-      call log("Found instance "+@instance.name+" in state "+@instance.state,"None")
+      call sys_log("Found instance "+@instance.name+" in state "+@instance.state,{})
     end
   end
 end

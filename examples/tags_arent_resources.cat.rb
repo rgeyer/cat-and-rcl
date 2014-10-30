@@ -9,11 +9,11 @@ end
 
 #include:../definitions/sys.cat.rb
 
-#include:../definitions/tags.cat.rb
+#include:../definitions/tag.cat.rb
 
 define launch() do
   $tags = rs.tags.by_tag(resource_type:"instances",tags: ["rs_monitoring:state=active"])
-  call log(to_json($tags),"None")
+  call sys_log("Tags by tag", {detail: to_json($tags)})
   # Results in;
   # [
   #   [
@@ -42,7 +42,7 @@ define launch() do
   #   ]
   # ]
 
-  call log(to_json(first(first($tags))),"None")
+  call sys_log("First result in tags by tag", {detail: to_json(first(first($tags)))})
   # Results in;
   # {
   #   "tags":[
@@ -68,7 +68,7 @@ define launch() do
   # }
 
   $first_resource_href = first(first(first($tags))["links"])["href"]
-  call log($first_resource_href,"None")
+  call sys_log("HREF of first resource with tag", {detail: $first_resource_href})
   # Results in;
   # /api/clouds/2175/instances/EQD8A7OTNANSK
 
@@ -140,8 +140,8 @@ define launch() do
     $tag = $current_tag["name"]
   end
 
-  call log(to_json($new_tags),"None")
+  call sys_log("New Tags", {detail: to_json($new_tags)})
 
   call get_tags_for_resource($first_resource_href) retrieve $tags
-  call log(to_json($tags),"None")
+  call sys_log("Tags by resource", {detail: to_json($tags)})
 end

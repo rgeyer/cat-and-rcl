@@ -30,7 +30,7 @@ end
 #   documentation.  Also supports "none" for no timeout
 #
 # @see http://support.rightscale.com/12-Guides/Cloud_Workflow_Developer_Guide/04_Attributes_and_Error_Handling#Timeouts RCL Documentation
-define launch_and_wait(@server, $timeout) do
+define server_launch_and_wait(@server, $timeout) do
   @server.launch()
   if $timeout == "none"
     sleep_until(@server.state =~ "^(operational|stranded.*|error)")

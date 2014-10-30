@@ -27,7 +27,7 @@ define launch() do
   $deployment_get_retries = 0
   sub on_error: retry_422_resource_not_found(3, $deployment_get_retries) do
     $deployment_get_retries = $deployment_get_retries + 1
-    call log("Try number "+$deployment_get_retries,"None")
+    call sys_log("Try number "+$deployment_get_retries,{})
     # Intentionally try to get something we"ll never get
     @deployment = rs.deployments.get(id: "abc")
   end
