@@ -129,7 +129,7 @@ define run_executable(@target,$options) return @tasks do
   if $merged_options["wait_for_completion"]
     sleep_until(@tasks.summary =~ "^(completed|failed)")
     if @tasks.summary =~ "failed"
-      raise "Failed to run " + $script_name
+      raise "Failed to run " + to_s($run_executable_params_hash)
     end
   end
 end
