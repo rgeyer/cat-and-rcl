@@ -53,11 +53,18 @@ define run_executable(@target,$options) return @tasks do
         if empty?(@scripts)
           raise "run_executable() unable to find RightScript with the name "+$merged_options["rightscript"]["name"]
         end
-        $revision = $merged_options["rightscript"]["revision"] || 0
-        $revisions, @script_to_run = concurrent map @script in @scripts return $available_revision, @script_with_revision do
-          $available_revision = @script.revision
+        $revision = "0"
+        if contains?(keys($merged_options["rightscript"]),["revision"])
+          $revision = $merged_options["rightscript"]["revision"]
+        end
+        $revisions, @script_to_run = concurrent map @script in @scripts return $available_revision,@script_with_revision do
+          $available_revision = to_s(@script.revision)
           if $available_revision == $revision
             @script_with_revision = @script
+          else
+            # TODO: This won't be necessary when RCL assigns the proper empty return
+            # collection type.
+            @script_with_revision = rs.right_scripts.empty()
           end
         end
         if empty?(@script_to_run)
