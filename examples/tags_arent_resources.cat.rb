@@ -136,7 +136,7 @@ define launch() do
 
 
   $tags_ary = first(first($tags))["tags"]
-  $new_tags = concurrent map $current_tag in $tags_ary return $tag do
+  $new_tags = map $current_tag in $tags_ary return $tag do
     $tag = $current_tag["name"]
   end
 

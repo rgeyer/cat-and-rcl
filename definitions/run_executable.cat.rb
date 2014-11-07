@@ -53,12 +53,12 @@ define run_executable(@target,$options) return @tasks do
         if empty?(@scripts)
           raise "run_executable() unable to find RightScript with the name "+$merged_options["rightscript"]["name"]
         end
-        $revision = "0"
+        $revision = 0
         if contains?(keys($merged_options["rightscript"]),["revision"])
           $revision = $merged_options["rightscript"]["revision"]
         end
-        $revisions, @script_to_run = concurrent map @script in @scripts return $available_revision,@script_with_revision do
-          $available_revision = to_s(@script.revision)
+        $revisions, @script_to_run = map @script in @scripts return $available_revision,@script_with_revision do
+          $available_revision = @script.revision
           if $available_revision == $revision
             @script_with_revision = @script
           else

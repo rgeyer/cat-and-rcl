@@ -27,19 +27,19 @@ end
 #
 # @see http://reference.rightscale.com/api1.5/resources/ResourceAuditEntries.html#create
 define sys_log($summary,$options) do
-  $default_options = {
+  $log_default_options = {
     detail: "",
     notify: "None",
     auditee_href: @@deployment.href
   }
 
-  $merged_options = $options + $default_options
+  $log_merged_options = $options + $log_default_options
   rs.audit_entries.create(
-    notify: $merged_options["notify"],
+    notify: $log_merged_options["notify"],
     audit_entry: {
-      auditee_href: $merged_options["auditee_href"],
+      auditee_href: $log_merged_options["auditee_href"],
       summary: $summary,
-      detail: $merged_options["detail"]
+      detail: $log_merged_options["detail"]
     }
   )
 end
@@ -53,7 +53,7 @@ end
 #
 # @see http://reference.rightscale.com/api1.5/media_types/MediaTypeCloud.html
 define sys_get_clouds_by_rel($rel) return @clouds do
-  @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
+  @clouds = map @cloud in rs.clouds.get() return @cloud_with_rel do
     $rels = select(@cloud.links, {"rel": $rel})
     if size($rels) > 0
       @cloud_with_rel = @cloud
@@ -68,7 +68,7 @@ end
 # @return [String] The execution ID of the current cloud app
 define sys_get_execution_id() return $execution_id do
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
-  $href_tag = concurrent map $current_tag in $tags_on_deployment return $tag do
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
       $tag = $current_tag
     end
