@@ -53,7 +53,7 @@ end
 #
 # @see http://reference.rightscale.com/api1.5/media_types/MediaTypeCloud.html
 define sys_get_clouds_by_rel($rel) return @clouds do
-  @clouds = map @cloud in rs.clouds.get() return @cloud_with_rel do
+  @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
     $rels = select(@cloud.links, {"rel": $rel})
     if size($rels) > 0
       @cloud_with_rel = @cloud

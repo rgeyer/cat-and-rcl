@@ -57,7 +57,7 @@ define run_executable(@target,$options) return @tasks do
         if contains?(keys($merged_options["rightscript"]),["revision"])
           $revision = $merged_options["rightscript"]["revision"]
         end
-        $revisions, @script_to_run = map @script in @scripts return $available_revision,@script_with_revision do
+        $revisions, @script_to_run = concurrent map @script in @scripts return $available_revision,@script_with_revision do
           $available_revision = @script.revision
           if $available_revision == $revision
             @script_with_revision = @script
