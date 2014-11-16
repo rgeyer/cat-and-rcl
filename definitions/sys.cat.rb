@@ -57,6 +57,8 @@ define sys_get_clouds_by_rel($rel) return @clouds do
     $rels = select(@cloud.links, {"rel": $rel})
     if size($rels) > 0
       @cloud_with_rel = @cloud
+    else
+      @cloud_with_rel = rs.clouds.empty()
     end
   end
 end
