@@ -90,26 +90,45 @@ def compile_template(cookies, template_source)
   end
 end
 
+def get_list_of_includes(file)
+  dedupe_include_list = {}
+  contents = file_to_str_and_validate(file)
+  contents.scan(/#include:(.*)$/).each do |include|
+    include_filepath = File.expand_path(include.first, File.dirname(file))
+    dedupe_include_list.merge!({include_filepath => include.first})
+    # This merges only the new keys by doing a diff
+    child_includes_hash = get_list_of_includes(include_filepath)
+    new_keys = child_includes_hash.keys() - dedupe_include_list.keys()
+    merge_these = child_includes_hash.select {|k,v| new_keys.include?(k) }
+    dedupe_include_list.merge!(merge_these)
+  end
+  dedupe_include_list
+end
+
 def preprocess_template(file)
   parent_template = file_to_str_and_validate(file)
-  parent_template.scan(/#include:(.*)$/).each do |include|
-    include_filepath = File.expand_path(include.first, File.dirname(file))
+  dedup_include_list = get_list_of_includes(file)
+
+  dedup_include_list.each do |key,val|
+    include_filepath = key
     include_contents = <<EOF
 ###############################################################################
-# BEGIN Include from #{include.first}
+# BEGIN Include from #{val}
 ###############################################################################
 EOF
 
-    include_contents += file_to_str_and_validate(include_filepath)
+    include_contents += file_to_str_and_validate(key)
 
     include_contents += <<EOF
 ###############################################################################
-# END Include from #{include.first}
+# END Include from #{val}
 ###############################################################################
 EOF
 
-    parent_template.sub!("#include:#{include.first}",include_contents)
+    parent_template.sub!("#include:#{val}",include_contents)
   end
+  # Clear all include lines from templates which were included from other templates
+  parent_template.gsub!(/#include:(.*)$/,"")
   parent_template
 end
 
