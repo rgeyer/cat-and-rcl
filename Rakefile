@@ -285,31 +285,68 @@ class BaseTest
     when "print result"
       formatador = Formatador.new
       formatador.display_line(File.basename(@filepath))
-      display_line = "Execute: [_green_][black]#{@execution_status.upcase}[/]"
-      if @test_config.keys().include?("desired_state")
-        if @execution_status != @test_config["desired_state"]
-          display_line = "Execute: [_yellow_][black]EXPECTED #{@execution_status.upcase}[/]"
-        else
-          display_line = "Execute: [_blue_][black]FIXED! #{@execution_status.upcase}[/]"
+      if @test_config.keys().include?("operation") && @operations
+        @operations.each do |operation_name,operation|
+          formatador.indent {
+            if operation["desired_result"] == operation["result"]
+              formatador.display_line("#{operation_name}: [_green_][black]#{operation["result"].upcase}[/]")
+            else
+              formatador.display_line("#{operation_name}: [_red_][black]#{operation["result"].upcase}[/]")
+            end
+          }
         end
-      elsif @test_config.keys().include?("expected_state")
-        if @execution_status != @test_config["expected_state"]
+      else
+        display_line = "Execute: [_green_][black]#{@execution_status.upcase}[/]"
+        if @test_config.keys().include?("desired_state")
+          if @execution_status != @test_config["desired_state"]
+            display_line = "Execute: [_yellow_][black]EXPECTED #{@execution_status.upcase}[/]"
+          else
+            display_line = "Execute: [_blue_][black]FIXED! #{@execution_status.upcase}[/]"
+          end
+        elsif @test_config.keys().include?("expected_state")
+          if @execution_status != @test_config["expected_state"]
+            display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+          end
+        elsif @execution_status == "failed"
           display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
         end
-      elsif @execution_status == "failed"
-        display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+        formatador.indent {
+          formatador.display_line(display_line)
+        }
       end
-      formatador.indent {
-        formatador.display_line(display_line)
-      }
       @status = "terminate"
     when "start operations"
-      # TODO: Need to do each one sequentially, which will suck
-      @status = "print result"
+      @operations = {}
+      @test_config["operation"].each do |operation|
+        op_hash = {"desired_result" => operation.last}
+        begin
+          response = operation_create(@execution_href, operation.first, @cookies)
+          op_hash["operation_href"] = response.headers[:location]
+        rescue RestClient::ExceptionWithResponse => e
+          @errors << "Failed to start operation #{operation.first} - #{@execution_href}"
+          @errors << handle_ss_error(e)
+          op_hash["result"] = "failed"
+        end
+        @operations[operation.first] = op_hash
+      end
+      @status = "wait for operations"
+    when "wait for operations"
+      if @operations
+        @operations.each do |operation_name,operation|
+          next if operation.has_key?("result")
+          op_response = operation_get_by_href(operation["operation_href"], @cookies)
+          if op_response["timestamps"]["finished_at"]
+            @operations[operation_name]["result"] = op_response["status"]["summary"]
+          end
+        end
 
-      # @test_config["operations"].each do |operation|
-      #
-      # end
+        finished_ops = @operations.select {|k,v| v.has_key?("result") }
+        if finished_ops.length == @operations.length
+          @status = "print result"
+        end
+      else
+        @status = "print result"
+      end
     when "terminate"
       if @execution_href
         begin

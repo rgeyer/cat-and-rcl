@@ -60,19 +60,150 @@ end
 API Requests
 ============
 
+There are rake tasks for specific API calls
+
 cloudapp_list
 --------------
+List all your running CloudApps
+
+```
+rake cloudapp_list
+Logging into RightScale API 1.5 @ https://us-4.rightscale.com
+Logging into self service @ https://selfservice-4.rightscale.com
+[
+  {
+    "kind": "self_service#execution",
+    "id": "546e780a1aad6a37a900001c",
+    "name": "foo",
+    "href": "/api/manager/projects/44134/executions/546e780a1aad6a37a900001c",
+    "description": "This is not an empty string",
+    "status": "running",
+    "cost": {
+      "value": "0.00",
+      "unit": "$",
+      "updated_at": null
+    },
+    "deployment": "/api/deployments/504781004",
+    "created_by": {
+      "id": 42138,
+      "name": "Ryan Geyer",
+      "email": "ryan.geyer@rightscale.com"
+    },
+    "timestamps": {
+      "created_at": "2014-11-20T23:23:54+00:00",
+      "launched_at": "2014-11-20T23:23:54+00:00",
+      "terminated_at": null
+    },
+    "links": {
+      "running_operations": {
+        "href": "/api/manager/projects/44134/operations?filter[]=execution_id==546e780a1aad6a37a900001c&filter[]=status==running"
+      },
+      "latest_notifications": {
+        "href": "/api/manager/projects/44134/notifications?filter[]=execution_id==546e780a1aad6a37a900001c"
+      }
+    }
+  }
+]
+
+```
 
 template_compile
 ----------------
+Preprocesses the CAT, then compiles it.  On success, it's pretty quiet.
+
+```
+rake "template_compile[tests/definitions/server_template_tests.cat.rb]"
+Logging into RightScale API 1.5 @ https://us-4.rightscale.com
+Logging into self service @ https://selfservice-4.rightscale.com
+Uploading template to SS compile_template
+Template compiled successfully
+```
+
+If compile fails, you'll know why.
+
+```
+rake "template_compile[tests/parsefail.cat.rb]"
+Logging into RightScale API 1.5 @ https://us-4.rightscale.com
+Logging into self service @ https://selfservice-4.rightscale.com
+Uploading template to SS compile_template
+Failed to compile template
+[
+  {
+    "origin": "template: template.cat, line: 236",
+    "problem": "Undefined variable or method",
+    "summary": "'error' is undefined",
+    "resolution": "Review the list of built-in methods at http://support.rightscale.com"
+  },
+  {
+    "origin": "template: template.cat, line: 0",
+    "problem": "Missing short description",
+    "summary": "Template source is missing 'short_description' declaration",
+    "resolution": "Please add a 'short_description' declaration, e.g. short_description \"My CloudApp\""
+  },
+  {
+    "origin": "template: template.cat, line: 0",
+    "problem": "Missing engine version",
+    "summary": "Template source is missing 'rs_ca_ver' declaration",
+    "resolution": "Please add a 'rs_ca_ver' declaration, e.g. rs_ca_ver \"20121202\""
+  }
+]
+```
 
 template_list
 -------------
+Lists all the available templates, no options, though some would likely be useful
+
+```
+rake template_list                                                                    *[master][ruby-1.9.3-p545@cat-and-rcl]
+Logging into RightScale API 1.5 @ https://us-4.rightscale.com
+Logging into self service @ https://selfservice-4.rightscale.com
+[
+  {
+    "kind": "self_service#template",
+    "id": "546e77cea20be70e1e00007e",
+    "name": "server_template_tests",
+    "filename": "server_template_tests20141120-41959-1gwp7xc.cat.rb",
+    "href": "/api/designer/collections/44134/templates/546e77cea20be70e1e00007e",
+    "short_description": "This is not an empty string",
+    "created_by": {
+      "id": 42138,
+      "name": "Ryan Geyer",
+      "email": "ryan.geyer@rightscale.com"
+    },
+    "timestamps": {
+      "created_at": "2014-11-20T23:22:54+00:00",
+      "updated_at": "2014-11-20T23:22:54+00:00",
+      "published_at": null
+    }
+  }
+]
+```
 
 template_upsert
 ---------------
+Creates or updates a template based on the CAT name, just like the UI
+
+```
+rake "template_upsert[tests/definitions/server_template_tests.cat.rb]"
+Logging into RightScale API 1.5 @ https://us-4.rightscale.com
+Logging into self service @ https://selfservice-4.rightscale.com
+Template upserted. HREF: /api/designer/collections/44134/templates/546e77cea20be70e1e00007e
+```
 
 #Tests
+
+You can run tests with the "test" rake task.
+
+```
+rake test
+```
+
+By default the test task runs all tests found in tests/\*\*/\*.cat.rb, but you
+can specify your own glob (relative to tests/)
+
+```
+rake "test[system/*.cat.rb]"
+```
 
 ## Test types
 
@@ -191,7 +322,43 @@ end
 
 ### Special Operations Execute
 
-_Not yet implemented_
+You can also create a single CAT with many special operations which will act as
+test cases.
+
+```
+#test_operation:success_one=completed
+#test_operation:success_two=completed
+#test_operation:fail_one=failed
+
+name "op tests"
+rs_ca_ver 20131202
+short_description "This is not an empty string"
+
+operation "success_one" do
+  description "Not empty"
+  definition "success_one"
+end
+
+operation "success_two" do
+  description "Not empty"
+  definition "success_two"
+end
+
+operation "fail_one" do
+  description "Not empty"
+  definition "fail_one"
+end
+
+define success_one() do
+end
+
+define success_two() do
+end
+
+define fail_one() do
+  raise "Fail"
+end
+```
 
 ## Results
 Green - Test completed successfully and with the expected result
@@ -221,3 +388,8 @@ When a test with this tag completes in a state other than the specified state
 it will be marked Yellow.
 
 When a test with this tag completes in the specified state it will be marked Green
+
+### test_operation:<operation name>=(completed|failed)
+You might wanna have a single CAT with multiple test cases.  If so, create the CAT
+and create one special operation for each test case.  Use this tag to specify
+the operation name to run, and the expected outcome.
