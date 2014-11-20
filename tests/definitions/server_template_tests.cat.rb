@@ -1,7 +1,7 @@
-#test:expected_state=running
 #test_operation:can_find_in_any=completed
 #test_operation:can_find_in_specific=completed
-#test_operation:more_than_one_st_raises=comleted
+#test_operation:more_than_one_st_raises=completed
+#test_operation:returns_null_when_not_found=completed
 
 name "server_template_tests"
 rs_ca_ver 20131202
