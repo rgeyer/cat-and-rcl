@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "type_does_not_report_resource_in_collection"
 rs_ca_ver 20131202
 short_description "This is not an empty string"

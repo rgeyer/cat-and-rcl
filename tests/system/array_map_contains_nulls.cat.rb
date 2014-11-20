@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "array_map_contains_nulls"
 rs_ca_ver 20131202
 short_description "This is not an empty string"
@@ -21,7 +23,7 @@ define launch() do
 
   $size = size($result)
   if $size != 1
-    call sys_log("Result of concurrent map on array".{detail: to_json($result)})
+    call log("Result of concurrent map on array"+to_json($result),"None")
     raise "Result has "+$size+" items, but expected only 1"
   end
 end

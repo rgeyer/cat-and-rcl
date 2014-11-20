@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "output-map-must-assign-from-var"
 rs_ca_ver 20131202
 short_description <<EOF

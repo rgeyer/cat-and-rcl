@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "nil-maps"
 rs_ca_ver 20131202
 short_description "Maps which return no values result in a null return value, rather than an expected empty array (or resource collection)"
@@ -17,6 +19,10 @@ define launch() do
 
   end
   call sys_log("Map on an array which returns no values results in ("+to_json($foo)+") though I\"d expect it to be an empty array",{})
+
+  if !empty?($foo)
+    raise "Expected array to be empty"
+  end
 
   @clouds = concurrent map @cloud in rs.clouds.get() return @selected_cloud do
 

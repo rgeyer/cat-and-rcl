@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "map_collection_return_always_server"
 rs_ca_ver 20131202
 short_description "This is not an empty string"

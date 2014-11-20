@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "non_global_overwrite"
 rs_ca_ver 20131202
 short_description "This is not an empty string"

@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "cloud-map-internal-error"
 rs_ca_ver 20131202
 short_description "Strange internal error when performing map on clouds"

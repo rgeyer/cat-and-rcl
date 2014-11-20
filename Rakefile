@@ -5,6 +5,7 @@ require 'rake'
 require 'json'
 require 'yaml'
 require 'logger'
+require 'formatador'
 require 'rest-client'
 
 
@@ -127,14 +128,242 @@ def template_upsert(template_filepath,cookies)
       response = template_create(tmpfile.path,cookies)
       template_href = response.headers[:location]
     end
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to compile template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
   ensure
     tmpfile.close!()
   end
   template_href
 end
 
+def execution_id_from_href(execution_href)
+  execution_href.match(/\/api\/manager\/projects\/[0-9]+\/executions\/(?<id>.*)/)["id"]
+end
+
 ################################################################################
 # END: Helpers
+#
+#
+################################################################################
+
+################################################################################
+# START: Test Classes
+#
+#
+################################################################################
+
+class BaseTest
+  attr_accessor :status
+
+  def initialize(filepath,cookies)
+    @errors = []
+    @status = "initialized"
+    @test_config = {}
+    @cookies = cookies
+    @filepath = filepath
+    content = file_to_str_and_validate(@filepath)
+    content.scan(/^(#test_?[operation]*:.*=.*)/) do |tag|
+      key_value = tag.first.to_s.match(/test_?(?<sub>operation)?:(?<key>.*)=(?<val>.*)$/)
+      if key_value.names.include?("sub") && key_value["sub"]
+        @test_config[key_value["sub"]] = {} unless @test_config.has_key?(key_value["sub"])
+        @test_config[key_value["sub"]][key_value["key"]] = key_value["val"]
+      else
+        @test_config[key_value["key"]] = key_value["val"]
+      end
+    end
+  end
+
+  def pump()
+    if @test_config.keys().include?("compile_only") & @test_config["compile_only"]
+      compile_only()
+    else
+      execution()
+    end
+  end
+
+  def finished?()
+    ["finished","failed"].include?(@status)
+  end
+
+  def errors()
+    formatador = Formatador.new
+    formatador.display_line("[red]#{File.basename(@filepath)}[/]")
+    formatador.indent {
+      @errors.each do |error|
+        formatador.display_line("[red]#{error}[/]")
+      end
+    }
+  end
+
+  protected
+  def handle_ss_error(e)
+    error_lines = "#{e.to_s}\n"
+    if e.response
+      if e.response.headers[:content_type] == "application/json"
+        error_lines += JSON.pretty_generate(JSON.parse(e.http_body)).gsub('\n',"\n")
+      else
+        error_lines += e.http_body
+      end
+    end
+    error_lines
+  end
+
+  def compile_only()
+    if @status == "initialized"
+      formatador = Formatador.new
+      formatador.display_line(File.basename(@filepath))
+      template = preprocess_template(@filepath)
+      success = false
+      begin
+        compile_template(@cookies, template)
+        success = true
+      rescue RestClient::ExceptionWithResponse => e
+        success = false
+      end
+
+      if @test_config.keys().include?("expected_state")
+        expected_bool = @test_config["expected_state"] == "running"
+        success = (success == expected_bool)
+      end
+
+      display_line = success ? "Compile: [_green_][black]SUCCESS[/]" : "Compile: [_red_][black]FAILURE[/]"
+      if @test_config.keys().include?("desired_state")
+        desired_bool = @test_config["desired_state"] == "running"
+        if success != desired_bool
+          display_line = "Compile: [_yellow_][black]EXPECTED FAILURE[/]"
+        else
+          display_line = "Compile: [_blue_][black]FIXED![/]"
+        end
+      end
+      formatador.indent {
+        formatador.display_line(display_line)
+      }
+      @status = "finished"
+    end
+  end
+
+  def execution()
+    case @status
+    when "initialized"
+      begin
+        template = preprocess_template(@filepath)
+        response = execution_create(template, @cookies)
+        @execution_href = response.headers[:location]
+        @status = "executing"
+      rescue RestClient::ExceptionWithResponse => e
+        if @test_config.has_key?("desired_state")
+          # Wierd corner case, demonstrated by
+          # tests/system/output-map-must-assign-from-var.cat.rb where compile
+          # succeeds, but the execution fails immediately.  Probably deserves
+          # a unique case.
+          @execution_status = "failed"
+          @status = "print result"
+        else
+          @errors << "Failed to create execution"
+          @errors << handle_ss_error(e)
+          @status = "report failure"
+        end
+      end
+    when "executing"
+      begin
+        execution = execution_get_by_href(@execution_href,@cookies)
+        if ["failed","running"].include?(execution["status"])
+          @execution_status = execution["status"]
+          if @test_config.has_key?("operation")
+            @status = "start operations"
+          else
+            @status = "print result"
+          end
+        end
+      rescue RestClient::ExceptionWithResponse => e
+        @errors << "Failed to get execution - #{@execution_href}"
+        @errors << handle_ss_error(e)
+        @status = "report failure"
+      end
+    when "print result"
+      formatador = Formatador.new
+      formatador.display_line(File.basename(@filepath))
+      display_line = "Execute: [_green_][black]#{@execution_status.upcase}[/]"
+      if @test_config.keys().include?("desired_state")
+        if @execution_status != @test_config["desired_state"]
+          display_line = "Execute: [_yellow_][black]EXPECTED #{@execution_status.upcase}[/]"
+        else
+          display_line = "Execute: [_blue_][black]FIXED! #{@execution_status.upcase}[/]"
+        end
+      elsif @test_config.keys().include?("expected_state")
+        if @execution_status != @test_config["expected_state"]
+          display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+        end
+      elsif @execution_status == "failed"
+        display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+      end
+      formatador.indent {
+        formatador.display_line(display_line)
+      }
+      @status = "terminate"
+    when "start operations"
+      # TODO: Need to do each one sequentially, which will suck
+      @status = "print result"
+
+      # @test_config["operations"].each do |operation|
+      #
+      # end
+    when "terminate"
+      if @execution_href
+        begin
+          operation_response = operation_create(@execution_href,"terminate",@cookies)
+          @terminate_op_href = operation_response.headers[:location]
+          @status = "terminating"
+        rescue RestClient::ExceptionWithResponse => e
+          @errors << "Failed to create terminate operation - #{@execution_href}"
+          @errors << handle_ss_error(e)
+          @status = "report failure"
+        end
+      else
+        @status = "finished"
+      end
+    when "terminating"
+      begin
+        operation = operation_get_by_href(@terminate_op_href, @cookies)
+        if operation["status"]["summary"] == "completed"
+          @status = "delete"
+        end
+      rescue RestClient::ExceptionWithResponse => e
+        @errors << "Failed to get terminate operation status - #{@terminate_op_href}"
+        @errors << handle_ss_error(e)
+        @status = "report failure"
+      end
+    when "delete"
+      begin
+        execution_delete_by_href(@execution_href, @cookies)
+        @status = "finished"
+      rescue RestClient::ExceptionWithResponse => e
+        @errors << "Failed to delete execution - #{@execution_href}"
+        @errors << handle_ss_error(e)
+        @status = "report failure"
+      end
+    when "finished"
+      # Do nothing
+    when "report failure"
+      formatador = Formatador.new
+      formatador.display_line("[red]#{File.basename(@filepath)}[/]")
+      formatador.indent {
+        formatador.display_line("[red]Error: See details below[/]")
+      }
+      @status = "failed"
+    when "failed"
+      # Do nothing
+    else
+      @errors << "unknown status #{@status}"
+      @status = "report failure"
+    end
+  end
+end
+
+################################################################################
+# END: Test Classes
 #
 #
 ################################################################################
@@ -186,25 +415,16 @@ end
 
 def compile_template(cookies, template_source)
   options = get_options()
-  begin
-    puts "Uploading template to SS compile_template"
-    compile_req = RestClient::Request.new(
-      :method => :post,
-      :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/compile",
-      :payload => URI.encode_www_form({
-        "source" => template_source
-      }),
-      :cookies => cookies,
-      :headers => {"X_API_VERSION" => "1.0"}
-    )
-    #RestClient.log = Logger.new(STDOUT)
-    compile_req.execute
-    puts "Template compiled successfully"
-  rescue RestClient::ExceptionWithResponse => e
-    puts "Failed to compile template"
-    errors = JSON.parse(e.http_body)
-    puts JSON.pretty_generate(errors).gsub('\n',"\n")
-  end
+  compile_req = RestClient::Request.new(
+    :method => :post,
+    :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/compile",
+    :payload => URI.encode_www_form({
+      "source" => template_source
+    }),
+    :cookies => cookies,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  compile_req.execute
 end
 
 def get_templates(cookies)
@@ -216,6 +436,83 @@ def get_templates(cookies)
     :headers => {"X_API_VERSION" => "1.0"}
   )
   response = list_req.execute
+  JSON.parse(response.body)
+end
+
+def get_cloudapps(cookies)
+  options = get_options()
+  list_req = RestClient::Request.new(
+    :method => :get,
+    :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
+    :cookies => cookies,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  response = list_req.execute
+  JSON.parse(response.body)
+end
+
+def execution_create(template, cookies, exec_options={})
+  options = get_options()
+  req = RestClient::Request.new(
+    :method => :post,
+    :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
+    :cookies => cookies,
+    :payload => URI.encode_www_form(
+     :source => template
+    ),
+    #:timeout => 300,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  req.execute
+end
+
+def execution_get_by_href(href, cookies)
+  options = get_options()
+  req = RestClient::Request.new(
+    :method => :get,
+    :url => "#{options[:selfservice_url]}#{href}",
+    :cookies => cookies,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  response = req.execute
+  JSON.parse(response.body)
+end
+
+def execution_delete_by_href(href, cookies)
+  options = get_options()
+  req = RestClient::Request.new(
+    :method => :delete,
+    :url => "#{options[:selfservice_url]}#{href}",
+    :cookies => cookies,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  req.execute
+end
+
+def operation_create(execution_href, operation_name, cookies, op_options={})
+  options = get_options()
+  req = RestClient::Request.new(
+    :method => :post,
+    :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/operations",
+    :cookies => cookies,
+    :payload => URI.encode_www_form(
+      :name => operation_name,
+      :execution_id => execution_id_from_href(execution_href)
+    ),
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  req.execute
+end
+
+def operation_get_by_href(href, cookies)
+  options = get_options()
+  req = RestClient::Request.new(
+    :method => :get,
+    :url => "#{options[:selfservice_url]}#{href}",
+    :cookies => cookies,
+    :headers => {"X_API_VERSION" => "1.0"}
+  )
+  response = req.execute
   JSON.parse(response.body)
 end
 
@@ -236,7 +533,15 @@ task :template_compile, [:filepath] do |t,args|
   cat_str = preprocess_template(args[:filepath])
 
   cookies = get_cookies()
-  compile_template(cookies, cat_str)
+  begin
+    puts "Uploading template to SS compile_template"
+    compile_template(cookies, cat_str)
+    puts "Template compiled successfully"
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to compile template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
 end
 
 desc "Preprocess a template, replacing include:/path/to/file statements with file contents, and produce an output file.  Default output filepath is \"processed-\"+:input_filepath"
@@ -259,10 +564,51 @@ task :template_upsert, [:filepath] do |t,args|
 end
 
 desc "List templates"
-task :templates_list do |t,args|
+task :template_list do |t,args|
   cookies = get_cookies()
   templates = get_templates(cookies)
   puts JSON.pretty_generate(templates)
+end
+
+desc "List CloudApps"
+task :cloudapp_list do |t,args|
+  cookies = get_cookies()
+  puts JSON.pretty_generate(get_cloudapps(cookies))
+end
+
+desc "Run Tests in the ./tests directory"
+task :test, [:tests_glob] do |t,args|
+  args.with_defaults(:tests_glob => "**/*.cat.rb")
+  glob = File.join(File.expand_path("./tests"), args[:tests_glob])
+  test_files = Dir.glob(glob)
+  if test_files.length == 0
+    puts "No test files found using glob (#{glob})"
+    exit 0
+  end
+
+  cookies = get_cookies()
+
+  tests = []
+  test_files.each do |test_file|
+    tests << BaseTest.new(test_file,cookies)
+  end
+  not_finished = true
+  begin
+    tests.each do |test|
+      test.pump()
+    end
+    finished_tests = tests.select {|t| t.finished? }
+    not_finished = tests.length > finished_tests.length
+    sleep(10)
+  end while not_finished
+
+  failed_tests = tests.select {|t| t.status == "failed" }
+  if failed_tests.length > 0
+    Formatador.display_line("[_red_][black]Error Details[/]")
+    failed_tests.each do |failed|
+      failed.errors()
+    end
+  end
 end
 
 ################################################################################

@@ -1,3 +1,5 @@
+#test:desired_state=running
+
 name "datetime-arithmetic"
 rs_ca_ver 20131202
 short_description "Arithmetic operations on datetime objects seems to break RCL completely"
