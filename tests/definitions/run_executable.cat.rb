@@ -41,9 +41,9 @@ operation "launch" do
   definition "launch"
 end
 
-#include:../definitions/sys.cat.rb
+#include:../../definitions/sys.cat.rb
 
-#include:../definitions/run_executable.cat.rb
+#include:../../definitions/run_executable.cat.rb
 
 define launch($instance_href_param,$server_href_param,$recipe_name_param,$rightscript_name_param,$rightscript_href_param) do
   @server = rs.get(href: $server_href_param)
@@ -53,7 +53,7 @@ define launch($instance_href_param,$server_href_param,$recipe_name_param,$rights
     # Happy path server
     sub task_name:"server recipe" do
       $options = {
-        recipe: "sys_firewall::do_list_rules"
+        recipe: $recipe_name_param
       }
       call run_executable(@server, $options) retrieve @tasks
     end
@@ -86,12 +86,22 @@ define launch($instance_href_param,$server_href_param,$recipe_name_param,$rights
       call run_executable(@server, $options) retrieve @tasks
     end
 
+    sub task_name:"server script name (boot revmatch)" do
+      $options = {
+        rightscript: {
+          name: $rightscript_name_param,
+          revmatch: "boot"
+        }
+      }
+      call run_executable(@server, $options) retrieve @tasks
+    end
+
 
 
     # Happy path instance
     sub task_name:"instance recipe" do
       $options = {
-        recipe: "sys_firewall::do_list_rules"
+        recipe: $recipe_name_param
       }
       call run_executable(@instance, $options) retrieve @tasks
     end
