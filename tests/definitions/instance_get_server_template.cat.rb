@@ -22,11 +22,6 @@ operation "instance_without_server_template_raises" do
   definition "instance_without_server_template_raises"
 end
 
-operation "foo" do
-  description "foo"
-  definition "foo"
-end
-
 #include:../../definitions/sys.cat.rb
 #include:../../definitions/instance.cat.rb
 
@@ -38,9 +33,4 @@ end
 define instance_without_server_template_raises() do
   @instance = {"namespace": "rs", "type": "instances", "fields": {"links": [{"rel": "foo", "href": "/foo/bar/baz"}]}}
   call instance_get_server_template(@instance) retrieve @serverTemplate
-end
-
-define foo() do
-  @instances = {"namespace": "rs", "type": "instances", "fields": {"links": [{"rel": "foo", "href": "/foo/bar/baz"}]}}
-  call sys_log(to_s(@instances),{detail: to_json(@instances.links)})
 end
