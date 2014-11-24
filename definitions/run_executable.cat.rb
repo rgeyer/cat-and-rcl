@@ -1,3 +1,6 @@
+#include:server_template.cat.rb
+#include:instance.cat.rb
+
 # Run a rightscript or recipe on a server or instance collection.
 #
 # @param @target [ServerResourceCollection|InstanceResourceCollection] the
@@ -14,10 +17,18 @@
 #       If not supplied the "latest" (which could be HEAD) will be used.
 #     * href [String] if specified href takes prescedence and defines the *exact*
 #       rightscript and revision to execute
+#     * revmatch [String] a ServerTemplate runlist name (one of "boot",
+#       "operational","decomission").  When supplied only the "name" option
+#       is considered and is required.  The RightScript which is executed will
+#       be the one with the same name that is in the specified runlist.
 #   * recipe [String] the recipe name to execute (must be associated with the
 #     @target's ServerTemplate)
 #
+# @return @task [TaskResourceCollection] the task returned by the run_executable
+#   request
+#
 # @see http://reference.rightscale.com/api1.5/resources/ResourceInstances.html#multi_run_executable
+# @see http://reference.rightscale.com/api1.5/resources/ResourceTasks.html
 define run_executable(@target,$options) return @tasks do
   @tasks = rs.tasks.empty()
   $default_options = {
@@ -45,7 +56,17 @@ define run_executable(@target,$options) return @tasks do
 
   $run_executable_params_hash = {inputs: $merged_options["inputs"]}
   if contains?(keys($merged_options),["rightscript"])
-    if any?(keys($merged_options["rightscript"]),"/(name|href)/")
+    if contains?(keys($merged_options["rightscript"]),["revmatch"])
+      if !contains?(keys($merged_options["rightscript"]),["name"])
+        raise "run_executable() requires both 'name' and 'revmatch' when specifying 'revmatch'"
+      end
+      call instance_get_server_template(@instances) retrieve @server_template
+      call server_template_get_rightscript_from_runnable_bindings(@server_template, $merged_options["rightscript"]["name"], {runlist: $merged_options["rightscript"]["revmatch"]}) retrieve $script_href
+      if !$script_href
+        raise "run_executable() unable to find RightScript named "+$merged_options["rightscript"]["name"]+" in the "+$merged_options["rightscript"]["revmatch"]+" runlist of the ServerTempate "+@server_template.name
+      end
+      $run_executable_params_hash["right_script_href"] = $script_href
+    elsif any?(keys($merged_options["rightscript"]),"/(name|href)/")
       if contains?(keys($merged_options["rightscript"]),["href"])
         $run_executable_params_hash["right_script_href"] = $merged_options["rightscript"]["href"]
       else
