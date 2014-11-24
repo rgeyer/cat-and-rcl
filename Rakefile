@@ -424,7 +424,7 @@ def gen_auth()
       :headers => {"Authorization" => "Bearer #{options[:access_token]}"}
     )
     ss_login_resp = ss_login_req.execute
-    auth["authorization"] = {"Authorization" => "Bearer #{oauth_token}"}
+    auth["authorization"] = {"Authorization" => "Bearer #{options[:access_token]}"}
     return auth
   end
   
