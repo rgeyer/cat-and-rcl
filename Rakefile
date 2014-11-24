@@ -106,6 +106,68 @@ def template_update(template_id,template_filepath,auth)
   update_req.execute
 end
 
+def template_publish(template_filepath,auth)
+  options = get_options()
+  template = template_upsert(template_filepath,auth)
+  template_id = template.split("/").last
+
+  pub_req = RestClient::Request.new(
+    :method => :post,
+    :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/publish",
+    :payload => URI.encode_www_form(
+      :id => template_id
+    ),
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+  )
+  begin
+    response = pub_req.execute
+    application_href = response.headers[:location]
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to publish template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
+  application_href
+end
+
+def template_republish(template_filepath,auth)
+  application_href = ""
+  options = get_options()
+  template_id = template_upsert(template_filepath,auth).split("/").last
+  template = file_to_str_and_validate(template_filepath)
+  matches = template.match(/^name\s*"(?<name>.*)"/)
+  name = matches["name"]
+
+  applications = get_applications(auth)
+  existing_applications = applications.select{|application| application["name"] == name }
+
+  begin
+    if existing_applications.length != 0
+      application_href = existing_applications.first()["href"]
+      pub_req = RestClient::Request.new(
+        :method => :post,
+        :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/publish",
+        :payload => URI.encode_www_form(
+          :id => template_id,
+          :overridden_application_href => application_href
+        ),
+        :cookies => auth["cookie"],
+        :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+      )
+      pub_req_resp = pub_req.execute
+    else
+      response = template_publish(tmpfile.path,auth)
+      application_href = response.headers[:location]
+    end
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to republish template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
+  application_href
+end
+
 def template_upsert(template_filepath,auth)
   template_href = ""
   options = get_options()
@@ -498,6 +560,18 @@ def compile_template(auth, template_source)
   compile_req.execute
 end
 
+def get_applications(auth)
+  options = get_options()
+  list_app_req = RestClient::Request.new(
+    :method => :get,
+    :url => "#{options[:selfservice_url]}/api/catalog/catalogs/#{options[:account_id]}/applications",
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+  )
+  response = list_app_req.execute
+  JSON.parse(response.body)
+end
+
 def get_templates(auth)
   options = get_options()
   list_req = RestClient::Request.new(
@@ -630,6 +704,20 @@ task :template_upsert, [:filepath] do |t,args|
   auth = gen_auth()
   href = template_upsert(args[:filepath],auth)
   puts "Template upserted. HREF: #{href}"
+end
+
+desc "Update and publish a template (based on name)"
+task :template_publish, [:filepath] do |t,args|
+  auth = gen_auth()
+  href = template_publish(args[:filepath],auth)
+  puts "Template published. HREF: #{href}"
+end
+
+desc "Update and re-publish a template (based on name)"
+task :template_republish, [:filepath] do |t,args|
+  auth = gen_auth()
+  href = template_republish(args[:filepath],auth)
+  puts "Template published. HREF: #{href}"
 end
 
 desc "List templates"
