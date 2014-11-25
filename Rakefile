@@ -739,8 +739,16 @@ task :template_execution, [:filepath, :option_path] do |t,args|
   auth = gen_auth()
   template = preprocess_template(args[:filepath])
   options = file_to_str_and_validate(args[:option_path])
-  href = execution_create(template,auth,options)
-  puts "Execution created. HREF: #{href}"
+  res = execution_create(template,auth,options)
+  puts "Execution created. HREF: #{res.headers[:location]}"
+end
+
+desc "Terminate Application"
+task :execution_terminate, [:href] do |t,args|
+  options = get_options()
+  auth = gen_auth()
+  operation_response = operation_create(options[:selfservice_url]+args[:href],"terminate",auth)
+  puts "Execution Terminating. HREF: #{operation_response.headers[:location]}"
 end
 
 desc "List CloudApps"
