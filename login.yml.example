@@ -28,7 +28,7 @@
 # 4. Use the following parameter to send an existing OAuth access token with every request:
 # To learn more about OAuth and how to obtain an access token, see
 # http://support.rightscale.com/12-Guides/03-Rightscale_API/OAuth
-#:access_token: my_token_string
+#:refresh_token: my_token_string
 
 # The following are optional parameters:
 :api_url: https://us-4.rightscale.com

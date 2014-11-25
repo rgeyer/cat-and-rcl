@@ -76,7 +76,7 @@ EOF
   parent_template
 end
 
-def template_create(template_filepath,cookies)
+def template_create(template_filepath,auth)
   options = get_options()
   create_req = RestClient::Request.new(
     :method => :post,
@@ -85,13 +85,13 @@ def template_create(template_filepath,cookies)
       :multipart => true,
       :source => File.new(template_filepath, "rb")
     },
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   create_req.execute
 end
 
-def template_update(template_id,template_filepath,cookies)
+def template_update(template_id,template_filepath,auth)
   options = get_options()
   update_req = RestClient::Request.new(
     :method => :put,
@@ -100,32 +100,95 @@ def template_update(template_id,template_filepath,cookies)
       :multipart => true,
       :source => File.new(template_filepath, "rb")
     },
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   update_req.execute
 end
 
-def template_upsert(template_filepath,cookies)
+def template_publish(template_filepath,auth)
+  options = get_options()
+  template = template_upsert(template_filepath,auth)
+  template_id = template.split("/").last
+
+  pub_req = RestClient::Request.new(
+    :method => :post,
+    :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/publish",
+    :payload => URI.encode_www_form(
+      :id => template_id
+    ),
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+  )
+  begin
+    response = pub_req.execute
+    application_href = response.headers[:location]
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to publish template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
+  application_href
+end
+
+def template_republish(template_filepath,auth)
+  application_href = ""
+  options = get_options()
+  template_id = template_upsert(template_filepath,auth).split("/").last
+  template = file_to_str_and_validate(template_filepath)
+  matches = template.match(/^name\s*"(?<name>.*)"/)
+  name = matches["name"]
+
+  applications = get_applications(auth)
+  existing_applications = applications.select{|application| application["name"] == name }
+
+  begin
+    if existing_applications.length != 0
+      application_href = existing_applications.first()["href"]
+      pub_req = RestClient::Request.new(
+        :method => :post,
+        :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/publish",
+        :payload => URI.encode_www_form(
+          :id => template_id,
+          :overridden_application_href => application_href
+        ),
+        :cookies => auth["cookie"],
+        :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+      )
+      pub_req_resp = pub_req.execute
+    else
+      response = template_publish(tmpfile.path,auth)
+      application_href = response.headers[:location]
+    end
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to republish template"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
+  application_href
+end
+
+def template_upsert(template_filepath,auth)
   template_href = ""
   options = get_options()
   template = preprocess_template(template_filepath)
   matches = template.match(/^name\s*"(?<name>.*)"/)
+  tmp_file = matches["name"].gsub("/","-").gsub(" ","-")
   name = matches["name"]
 
-  templates = get_templates(cookies)
+  templates = get_templates(auth)
   existing_templates = templates.select{|template| template["name"] == name }
 
-  tmpfile = Tempfile.new([name,".cat.rb"])
+  tmpfile = Tempfile.new([tmp_file,".cat.rb"])
   begin
     tmpfile.write(template)
     tmpfile.close()
     if existing_templates.length != 0
       template_id = existing_templates.first()["id"]
-      response = template_update(template_id,tmpfile.path,cookies)
+      response = template_update(template_id,tmpfile.path,auth)
       template_href = "/api/designer/collections/#{options[:account_id]}/templates/#{template_id}"
     else
-      response = template_create(tmpfile.path,cookies)
+      response = template_create(tmpfile.path,auth)
       template_href = response.headers[:location]
     end
   rescue RestClient::ExceptionWithResponse => e
@@ -157,11 +220,11 @@ end
 class BaseTest
   attr_accessor :status
 
-  def initialize(filepath,cookies)
+  def initialize(filepath,auth)
     @errors = []
     @status = "initialized"
     @test_config = {}
-    @cookies = cookies
+    @auth = auth
     @filepath = filepath
     content = file_to_str_and_validate(@filepath)
     content.scan(/^(#test_?[operation]*:.*=.*)/) do |tag|
@@ -217,7 +280,7 @@ class BaseTest
       template = preprocess_template(@filepath)
       success = false
       begin
-        compile_template(@cookies, template)
+        compile_template(@auth, template)
         success = true
       rescue RestClient::ExceptionWithResponse => e
         success = false
@@ -249,7 +312,7 @@ class BaseTest
     when "initialized"
       begin
         template = preprocess_template(@filepath)
-        response = execution_create(template, @cookies)
+        response = execution_create(template, @auth)
         @execution_href = response.headers[:location]
         @status = "executing"
       rescue RestClient::ExceptionWithResponse => e
@@ -268,7 +331,7 @@ class BaseTest
       end
     when "executing"
       begin
-        execution = execution_get_by_href(@execution_href,@cookies)
+        execution = execution_get_by_href(@execution_href,@auth)
         if ["failed","running"].include?(execution["status"])
           @execution_status = execution["status"]
           if @test_config.has_key?("operation")
@@ -320,7 +383,7 @@ class BaseTest
       @test_config["operation"].each do |operation|
         op_hash = {"desired_result" => operation.last}
         begin
-          response = operation_create(@execution_href, operation.first, @cookies)
+          response = operation_create(@execution_href, operation.first, @auth)
           op_hash["operation_href"] = response.headers[:location]
         rescue RestClient::ExceptionWithResponse => e
           @errors << "Failed to start operation #{operation.first} - #{@execution_href}"
@@ -334,7 +397,7 @@ class BaseTest
       if @operations
         @operations.each do |operation_name,operation|
           next if operation.has_key?("result")
-          op_response = operation_get_by_href(operation["operation_href"], @cookies)
+          op_response = operation_get_by_href(operation["operation_href"], @auth)
           if op_response["timestamps"]["finished_at"]
             @operations[operation_name]["result"] = op_response["status"]["summary"]
           end
@@ -350,7 +413,7 @@ class BaseTest
     when "terminate"
       if @execution_href
         begin
-          operation_response = operation_create(@execution_href,"terminate",@cookies)
+          operation_response = operation_create(@execution_href,"terminate",@auth)
           @terminate_op_href = operation_response.headers[:location]
           @status = "terminating"
         rescue RestClient::ExceptionWithResponse => e
@@ -363,7 +426,7 @@ class BaseTest
       end
     when "terminating"
       begin
-        operation = operation_get_by_href(@terminate_op_href, @cookies)
+        operation = operation_get_by_href(@terminate_op_href, @auth)
         if operation["status"]["summary"] == "completed"
           @status = "delete"
         end
@@ -374,7 +437,7 @@ class BaseTest
       end
     when "delete"
       begin
-        execution_delete_by_href(@execution_href, @cookies)
+        execution_delete_by_href(@execution_href, @auth)
         @status = "finished"
       rescue RestClient::ExceptionWithResponse => e
         @errors << "Failed to delete execution - #{@execution_href}"
@@ -410,10 +473,48 @@ end
 #
 #
 ################################################################################
-def get_cookies
+def gen_auth()
   options = get_options()
-  cookies = nil
-
+  auth = {"cookie" => {}, "authorization" => {}}
+  
+  if options.include?(:access_token)
+    puts "Using pre-authenticated access token"
+    puts "Logging into self service @ #{options[:selfservice_url]}"
+    ss_login_req = RestClient::Request.new(
+      :method => :get,
+      :url => "#{options[:selfservice_url]}/api/catalog/new_session?account_id=#{options[:account_id]}",
+      :headers => {"Authorization" => "Bearer #{options[:access_token]}"}
+    )
+    ss_login_resp = ss_login_req.execute
+    auth["authorization"] = {"Authorization" => "Bearer #{options[:access_token]}"}
+    return auth
+  end
+  
+  if options.include?(:refresh_token)
+    # OAuth
+    puts "Logging into RightScale API 1.5 using OAuth @ #{options[:api_url]}"
+    cm_login_req = RestClient::Request.new(
+      :method => :post,
+      :payload => URI.encode_www_form({
+                                        :grant_type => "refresh_token",
+                                        :refresh_token => options[:refresh_token]
+                                      }),
+      :url => "#{options[:api_url]}/api/oauth2",
+      :headers => {"X-API-VERSION" => "1.5"}
+    )
+    cm_login_resp = cm_login_req.execute
+    oauth_token = JSON.parse(cm_login_resp.to_s)["access_token"]
+    puts "Logging into self service @ #{options[:selfservice_url]}"
+    ss_login_req = RestClient::Request.new(
+      :method => :get,
+      :url => "#{options[:selfservice_url]}/api/catalog/new_session?account_id=#{options[:account_id]}",
+      :headers => {"Authorization" => "Bearer #{oauth_token}"}
+    )
+    ss_login_resp = ss_login_req.execute
+    auth["authorization"] = {"Authorization" => "Bearer #{oauth_token}"}
+    return auth
+  end
+ 
   if options.include?(:email) && options.include?(:password)
     puts "Logging into RightScale API 1.5 @ #{options[:api_url]}"
     cm_login_req = RestClient::Request.new(
@@ -435,22 +536,17 @@ def get_cookies
       :cookies => {"rs_gbl" => cm_login_resp.cookies["rs_gbl"]}
     )
     ss_login_resp = ss_login_req.execute
-    cookies = cm_login_resp.cookies
+    auth["cookie"] = cm_login_resp.cookies
+    return auth
   end
-
-  if options.include?(["access_token"])
-    # OAuth
-    raise "Oops, sorry, haven't implemented oAuth yet!"
-  end
-
+  
   if options.include?(["instance_token"])
     raise "Sorry, don't think we can authenticate with SS using an instance token"
   end
-
-  cookies
+  raise "No auth methods found"
 end
 
-def compile_template(cookies, template_source)
+def compile_template(auth, template_source)
   options = get_options()
   compile_req = RestClient::Request.new(
     :method => :post,
@@ -458,96 +554,115 @@ def compile_template(cookies, template_source)
     :payload => URI.encode_www_form({
       "source" => template_source
     }),
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   compile_req.execute
 end
 
-def get_templates(cookies)
+def get_applications(auth)
+  options = get_options()
+  list_app_req = RestClient::Request.new(
+    :method => :get,
+    :url => "#{options[:selfservice_url]}/api/catalog/catalogs/#{options[:account_id]}/applications",
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+  )
+  response = list_app_req.execute
+  JSON.parse(response.body)
+end
+
+def get_templates(auth)
   options = get_options()
   list_req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates",
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   response = list_req.execute
   JSON.parse(response.body)
 end
 
-def get_cloudapps(cookies)
+def get_cloudapps(auth)
   options = get_options()
   list_req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   response = list_req.execute
   JSON.parse(response.body)
 end
 
-def execution_create(template, cookies, exec_options={})
+def execution_create(template, auth, exec_options={})
   options = get_options()
   req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
-    :cookies => cookies,
+    :cookies => auth["cookie"],
     :payload => URI.encode_www_form(
-     :source => template
+      :source => template,
+      :options => exec_options
     ),
     #:timeout => 300,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
-  req.execute
+  begin
+    req.execute
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to create execution"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
 end
 
-def execution_get_by_href(href, cookies)
+def execution_get_by_href(href, auth)
   options = get_options()
   req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}#{href}",
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   response = req.execute
   JSON.parse(response.body)
 end
 
-def execution_delete_by_href(href, cookies)
+def execution_delete_by_href(href, auth)
   options = get_options()
   req = RestClient::Request.new(
     :method => :delete,
     :url => "#{options[:selfservice_url]}#{href}",
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   req.execute
 end
 
-def operation_create(execution_href, operation_name, cookies, op_options={})
+def operation_create(execution_href, operation_name, auth, op_options={})
   options = get_options()
   req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/operations",
-    :cookies => cookies,
+    :cookies => auth["cookie"],
     :payload => URI.encode_www_form(
       :name => operation_name,
       :execution_id => execution_id_from_href(execution_href)
     ),
-    :headers => {"X_API_VERSION" => "1.0"}
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   req.execute
 end
 
-def operation_get_by_href(href, cookies)
+def operation_get_by_href(href, auth)
   options = get_options()
   req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}#{href}",
-    :cookies => cookies,
-    :headers => {"X_API_VERSION" => "1.0"}
+    :cookies => auth["cookie"],
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   response = req.execute
   JSON.parse(response.body)
@@ -568,11 +683,9 @@ end
 desc "Compile a template to discover any syntax errors"
 task :template_compile, [:filepath] do |t,args|
   cat_str = preprocess_template(args[:filepath])
-
-  cookies = get_cookies()
   begin
     puts "Uploading template to SS compile_template"
-    compile_template(cookies, cat_str)
+    compile_template(gen_auth(), cat_str)
     puts "Template compiled successfully"
   rescue RestClient::ExceptionWithResponse => e
     puts "Failed to compile template"
@@ -595,22 +708,53 @@ end
 
 desc "Upload a new template or update an existing one (based on name)"
 task :template_upsert, [:filepath] do |t,args|
-  cookies = get_cookies()
-  href = template_upsert(args[:filepath],cookies)
+  auth = gen_auth()
+  href = template_upsert(args[:filepath],auth)
   puts "Template upserted. HREF: #{href}"
+end
+
+desc "Update and publish a template (based on name)"
+task :template_publish, [:filepath] do |t,args|
+  auth = gen_auth()
+  href = template_publish(args[:filepath],auth)
+  puts "Template published. HREF: #{href}"
+end
+
+desc "Update and re-publish a template (based on name)"
+task :template_republish, [:filepath] do |t,args|
+  auth = gen_auth()
+  href = template_republish(args[:filepath],auth)
+  puts "Template published. HREF: #{href}"
 end
 
 desc "List templates"
 task :template_list do |t,args|
-  cookies = get_cookies()
-  templates = get_templates(cookies)
+  auth = gen_auth()
+  templates = get_templates(auth)
   puts JSON.pretty_generate(templates)
+end
+
+desc "Template Execution"
+task :template_execution, [:filepath, :option_path] do |t,args|
+  auth = gen_auth()
+  template = preprocess_template(args[:filepath])
+  options = file_to_str_and_validate(args[:option_path])
+  res = execution_create(template,auth,options)
+  puts "Execution created. HREF: #{res.headers[:location]}"
+end
+
+desc "Terminate Application"
+task :execution_terminate, [:href] do |t,args|
+  options = get_options()
+  auth = gen_auth()
+  operation_response = operation_create(options[:selfservice_url]+args[:href],"terminate",auth)
+  puts "Execution Terminating. HREF: #{operation_response.headers[:location]}"
 end
 
 desc "List CloudApps"
 task :cloudapp_list do |t,args|
-  cookies = get_cookies()
-  puts JSON.pretty_generate(get_cloudapps(cookies))
+  auth = gen_auth()
+  puts JSON.pretty_generate(get_cloudapps(auth))
 end
 
 desc "Run Tests in the ./tests directory"
@@ -623,11 +767,11 @@ task :test, [:tests_glob] do |t,args|
     exit 0
   end
 
-  cookies = get_cookies()
+  auth = gen_auth()
 
   tests = []
   test_files.each do |test_file|
-    tests << BaseTest.new(test_file,cookies)
+    tests << BaseTest.new(test_file,auth)
   end
   not_finished = true
   begin
