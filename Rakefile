@@ -476,7 +476,7 @@ end
 def gen_auth()
   options = get_options()
   auth = {"cookie" => {}, "authorization" => {}}
-  
+
   if options.include?(:access_token)
     puts "Using pre-authenticated access token"
     puts "Logging into self service @ #{options[:selfservice_url]}"
@@ -489,7 +489,7 @@ def gen_auth()
     auth["authorization"] = {"Authorization" => "Bearer #{options[:access_token]}"}
     return auth
   end
-  
+
   if options.include?(:refresh_token)
     # OAuth
     puts "Logging into RightScale API 1.5 using OAuth @ #{options[:api_url]}"
@@ -514,7 +514,7 @@ def gen_auth()
     auth["authorization"] = {"Authorization" => "Bearer #{oauth_token}"}
     return auth
   end
- 
+
   if options.include?(:email) && options.include?(:password)
     puts "Logging into RightScale API 1.5 @ #{options[:api_url]}"
     cm_login_req = RestClient::Request.new(
@@ -539,7 +539,7 @@ def gen_auth()
     auth["cookie"] = cm_login_resp.cookies
     return auth
   end
-  
+
   if options.include?(["instance_token"])
     raise "Sorry, don't think we can authenticate with SS using an instance token"
   end
@@ -598,15 +598,13 @@ end
 
 def execution_create(template, auth, exec_options={})
   options = get_options()
+  payload = {:source => template}
+  payload.merge!({:options => exec_options}) if exec_options.length != 0
   req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
     :cookies => auth["cookie"],
-    :payload => URI.encode_www_form(
-      :source => template,
-      :options => exec_options
-    ),
-    #:timeout => 300,
+    :payload => URI.encode_www_form(payload),
     :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
   begin
