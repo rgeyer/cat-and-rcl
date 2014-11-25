@@ -603,12 +603,19 @@ def execution_create(template, auth, exec_options={})
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
     :cookies => auth["cookie"],
     :payload => URI.encode_www_form(
-     :source => template
+      :source => template,
+      :options => exec_options
     ),
     #:timeout => 300,
     :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
-  req.execute
+  begin
+    req.execute
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to create execution"
+    errors = JSON.parse(e.http_body)
+    puts JSON.pretty_generate(errors).gsub('\n',"\n")
+  end
 end
 
 def execution_get_by_href(href, auth)
@@ -725,6 +732,15 @@ task :template_list do |t,args|
   auth = gen_auth()
   templates = get_templates(auth)
   puts JSON.pretty_generate(templates)
+end
+
+desc "Template Execution"
+task :template_execution, [:filepath, :option_path] do |t,args|
+  auth = gen_auth()
+  template = preprocess_template(args[:filepath])
+  options = file_to_str_and_validate(args[:option_path])
+  href = execution_create(template,auth,options)
+  puts "Execution created. HREF: #{href}"
 end
 
 desc "List CloudApps"

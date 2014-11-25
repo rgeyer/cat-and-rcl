@@ -1,0 +1,7 @@
+[
+    {
+	"name": "app_name",	
+	"type":"string",
+	"value":"Some normal parameter."
+    }      
+]
