@@ -260,8 +260,7 @@ class BaseTest
     }
   end
 
-  protected
-  def handle_ss_error(e)
+  def self.handle_ss_error(e)
     error_lines = "#{e.to_s}\n"
     if e.response
       if e.response.headers[:content_type] == "application/json"
@@ -273,6 +272,27 @@ class BaseTest
     error_lines
   end
 
+  def handle_ss_response(response)
+    if response
+      if response.is_a?(Hash)
+        error_lines = JSON.pretty_generate(response).gsub('\n',"\n")
+      elsif response.is_a?(RestClient::Response)
+        error_lines = ""
+        if response.headers[:content_type] == "application/json"
+          error_lines += JSON.pretty_generate(JSON.parse(response.body)).gsub('\n',"\n")
+        else
+          error_lines += response.body
+        end
+      else
+        error_lines = "Don't know what to do with a #{response.class.to_s}"
+      end
+    else
+      error_lines = "Response was null"
+    end
+    error_lines
+  end
+
+  protected
   def compile_only()
     if @status == "initialized"
       formatador = Formatador.new
@@ -284,6 +304,7 @@ class BaseTest
         success = true
       rescue RestClient::ExceptionWithResponse => e
         success = false
+        @errors << BaseTest.handle_ss_error(e)
       end
 
       if @test_config.keys().include?("expected_state")
@@ -291,7 +312,11 @@ class BaseTest
         success = (success == expected_bool)
       end
 
-      display_line = success ? "Compile: [_green_][black]SUCCESS[/]" : "Compile: [_red_][black]FAILURE[/]"
+      if success
+        display_line = "Compile: [_green_][black]SUCCESS[/]"
+      else
+        display_line = "Compile: [_red_][black]FAILURE[/]"
+      end
       if @test_config.keys().include?("desired_state")
         desired_bool = @test_config["desired_state"] == "running"
         if success != desired_bool
@@ -303,7 +328,7 @@ class BaseTest
       formatador.indent {
         formatador.display_line(display_line)
       }
-      @status = "finished"
+      @status = @errors.length == 0 ? "finished" : "failed"
     end
   end
 
@@ -321,11 +346,12 @@ class BaseTest
           # tests/system/output-map-must-assign-from-var.cat.rb where compile
           # succeeds, but the execution fails immediately.  Probably deserves
           # a unique case.
+          @execution_response = e.response
           @execution_status = "failed"
           @status = "print result"
         else
           @errors << "Failed to create execution"
-          @errors << handle_ss_error(e)
+          @errors << BaseTest.handle_ss_error(e)
           @status = "report failure"
         end
       end
@@ -334,6 +360,7 @@ class BaseTest
         execution = execution_get_by_href(@execution_href,@auth)
         if ["failed","running"].include?(execution["status"])
           @execution_status = execution["status"]
+          @execution_response = execution
           if @test_config.has_key?("operation")
             @status = "start operations"
           else
@@ -342,41 +369,46 @@ class BaseTest
         end
       rescue RestClient::ExceptionWithResponse => e
         @errors << "Failed to get execution - #{@execution_href}"
-        @errors << handle_ss_error(e)
+        @errors << BaseTest.handle_ss_error(e)
         @status = "report failure"
       end
     when "print result"
       formatador = Formatador.new
       formatador.display_line(File.basename(@filepath))
-      if @test_config.keys().include?("operation") && @operations
-        @operations.each do |operation_name,operation|
-          formatador.indent {
-            if operation["desired_result"] == operation["result"]
-              formatador.display_line("#{operation_name}: [_green_][black]#{operation["result"].upcase}[/]")
-            else
-              formatador.display_line("#{operation_name}: [_red_][black]#{operation["result"].upcase}[/]")
-            end
-          }
+      display_line = "Execute: [_green_][black]#{@execution_status.upcase}[/]"
+      if @test_config.keys().include?("desired_state")
+        if @execution_status != @test_config["desired_state"]
+          display_line = "Execute: [_yellow_][black]EXPECTED #{@execution_status.upcase}[/]"
+          @errors << handle_ss_response(@execution_response)
+        else
+          display_line = "Execute: [_blue_][black]FIXED! #{@execution_status.upcase}[/]"
         end
-      else
-        display_line = "Execute: [_green_][black]#{@execution_status.upcase}[/]"
-        if @test_config.keys().include?("desired_state")
-          if @execution_status != @test_config["desired_state"]
-            display_line = "Execute: [_yellow_][black]EXPECTED #{@execution_status.upcase}[/]"
-          else
-            display_line = "Execute: [_blue_][black]FIXED! #{@execution_status.upcase}[/]"
-          end
-        elsif @test_config.keys().include?("expected_state")
-          if @execution_status != @test_config["expected_state"]
-            display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
-          end
-        elsif @execution_status == "failed"
+      elsif @test_config.keys().include?("expected_state")
+        if @execution_status != @test_config["expected_state"]
           display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+          @errors << handle_ss_response(@execution_response)
         end
-        formatador.indent {
-          formatador.display_line(display_line)
-        }
+      elsif @execution_status == "failed"
+        display_line = "Execute: [_red_][black]#{@execution_status.upcase}[/]"
+        @errors << handle_ss_response(@execution_response)
       end
+      formatador.indent {
+        formatador.display_line(display_line)
+        if @test_config.keys().include?("operation") && @operations
+          formatador.display_line("Operations --")
+          @operations.each do |operation_name,operation|
+            formatador.indent {
+              if operation["desired_result"] == operation["result"]
+                formatador.display_line("#{operation_name}: [_green_][black]#{operation["result"].upcase}[/]")
+              else
+                formatador.display_line("#{operation_name}: [_red_][black]#{operation["result"].upcase}[/]")
+                @errors << JSON.pretty_generate(operation["response"]).gsub('\n',"\n")
+              end
+            }
+          end
+          formatador.display_line("-- Operations")
+        end
+      }
       @status = "terminate"
     when "start operations"
       @operations = {}
@@ -387,7 +419,7 @@ class BaseTest
           op_hash["operation_href"] = response.headers[:location]
         rescue RestClient::ExceptionWithResponse => e
           @errors << "Failed to start operation #{operation.first} - #{@execution_href}"
-          @errors << handle_ss_error(e)
+          @errors << BaseTest.handle_ss_error(e)
           op_hash["result"] = "failed"
         end
         @operations[operation.first] = op_hash
@@ -400,6 +432,7 @@ class BaseTest
           op_response = operation_get_by_href(operation["operation_href"], @auth)
           if op_response["timestamps"]["finished_at"]
             @operations[operation_name]["result"] = op_response["status"]["summary"]
+            @operations[operation_name]["response"] = op_response
           end
         end
 
@@ -418,11 +451,11 @@ class BaseTest
           @status = "terminating"
         rescue RestClient::ExceptionWithResponse => e
           @errors << "Failed to create terminate operation - #{@execution_href}"
-          @errors << handle_ss_error(e)
+          @errors << BaseTest.handle_ss_error(e)
           @status = "report failure"
         end
       else
-        @status = "finished"
+        @status = @errors.length == 0 ? "finished" : "failed"
       end
     when "terminating"
       begin
@@ -432,16 +465,16 @@ class BaseTest
         end
       rescue RestClient::ExceptionWithResponse => e
         @errors << "Failed to get terminate operation status - #{@terminate_op_href}"
-        @errors << handle_ss_error(e)
+        @errors << BaseTest.handle_ss_error(e)
         @status = "report failure"
       end
     when "delete"
       begin
         execution_delete_by_href(@execution_href, @auth)
-        @status = "finished"
+        @status = @errors.length == 0 ? "finished" : "failed"
       rescue RestClient::ExceptionWithResponse => e
         @errors << "Failed to delete execution - #{@execution_href}"
-        @errors << handle_ss_error(e)
+        @errors << BaseTest.handle_ss_error(e)
         @status = "report failure"
       end
     when "finished"
@@ -607,13 +640,7 @@ def execution_create(template, auth, exec_options={})
     :payload => URI.encode_www_form(payload),
     :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
   )
-  begin
-    req.execute
-  rescue RestClient::ExceptionWithResponse => e
-    puts "Failed to create execution"
-    errors = JSON.parse(e.http_body)
-    puts JSON.pretty_generate(errors).gsub('\n',"\n")
-  end
+  req.execute
 end
 
 def execution_get_by_href(href, auth)
@@ -737,8 +764,13 @@ task :template_execution, [:filepath, :option_path] do |t,args|
   auth = gen_auth()
   template = preprocess_template(args[:filepath])
   options = file_to_str_and_validate(args[:option_path])
-  res = execution_create(template,auth,options)
-  puts "Execution created. HREF: #{res.headers[:location]}"
+  begin
+    res = execution_create(template,auth,options)
+    puts "Execution created. HREF: #{res.headers[:location]}"
+  rescue RestClient::ExceptionWithResponse => e
+    puts "Failed to create execution"
+    puts BaseTest.handle_ss_error(e)
+  end
 end
 
 desc "Terminate Application"
