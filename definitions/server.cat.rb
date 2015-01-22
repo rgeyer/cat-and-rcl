@@ -17,17 +17,7 @@ define server_definition_to_media_type(@server) return $media_type do
     if contains?($top_level_properties, [$key])
       $media_type[$key] = $definition_hash["fields"][$key]
     else
-      if $key == "inputs"
-        $the_hash = {}
-        foreach $input in $definition_hash["fields"][$key] do
-          $name = $input["name"]
-          $val = $input["value"]
-          $the_hash[$name] = $val
-        end
-        $media_type["instance"]["inputs"] = $the_hash
-      else
-        $media_type["instance"][$key] = $definition_hash["fields"][$key]
-      end
+      $media_type["instance"][$key] = $definition_hash["fields"][$key]
     end
   end
 end
