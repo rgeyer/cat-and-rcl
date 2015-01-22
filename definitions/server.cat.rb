@@ -32,10 +32,10 @@ end
 define server_launch_and_wait(@server, $timeout) do
   @server.launch()
   if $timeout == "none"
-    sleep_until(@server.state =~ "^(operational|stranded.*|error)")
+    sleep_until(@server.state =~ "^(operational|stranded.*|terminated|inactive)")
   else
     sub timeout: $timeout do
-      sleep_until(@server.state =~ "^(operational|stranded.*|error)")
+      sleep_until(@server.state =~ "^(operational|stranded.*|terminated|inactive)")
     end
   end
 end
