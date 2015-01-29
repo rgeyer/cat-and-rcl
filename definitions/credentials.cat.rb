@@ -41,6 +41,8 @@ end
 #   * value [String] The desired value of the credential. I.E. Sup3r$ecure!
 #   * description [String] An optional description for the credential. Provide
 #     an empty string for none.
+#
+# @return @credential [CredentialResourceCollection] the updated credential
 define update_credential($credential_name,$update_values) return @credential do
   @credential = find("credentials", $credential_name)
   @credential.update(credential: $update_values)
