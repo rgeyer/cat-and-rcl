@@ -86,3 +86,21 @@ define sys_get_execution_id() return $execution_id do
   end
 
 end
+
+# Concurrently finds and deletes all servers and arrays. Useful as a replacement
+# for auto-terminate to clean up more quickly
+define sys_concurrent_terminate_servers_and_arrays() do
+  concurrent do
+    sub task_name:"terminate servers" do
+      concurrent foreach @server in @@deployment.servers() do
+        delete(@server)
+      end
+    end
+
+    sub task_name:"terminate server_arrays" do
+      concurrent foreach @array in @@deployment.server_arrays() do
+        delete(@array)
+      end
+    end
+  end
+end
