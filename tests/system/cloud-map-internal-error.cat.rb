@@ -1,4 +1,5 @@
-#test:desired_state=running
+#test:execution_state=running
+#test:execution_alternate_state=failed
 
 name "cloud-map-internal-error"
 rs_ca_ver 20131202

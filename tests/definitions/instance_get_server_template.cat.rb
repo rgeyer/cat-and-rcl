@@ -1,6 +1,3 @@
-#test_operation:non_instance_raises=failed
-#test_operation:instance_without_server_template_raises=failed
-
 name "instance_get_server_template"
 rs_ca_ver 20131202
 short_description "This is not an empty string"
@@ -12,11 +9,13 @@ parameter "instance_without_st_param" do
   allowed_pattern "/api/clouds/[0-9]+/instances/[0-9a-zA-Z]+"
 end
 
+#test_operation:execution_state=failed
 operation "non_instance_raises" do
   description "Passing something other than instances fails"
   definition "non_instance_raises"
 end
 
+#test_operation:execution_state=failed
 operation "instance_without_server_template_raises" do
   description "An instance that does not have a ServerTemplate fails"
   definition "instance_without_server_template_raises"

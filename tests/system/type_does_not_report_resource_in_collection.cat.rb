@@ -1,4 +1,5 @@
-#test:desired_state=running
+#test:execution_state=running
+#test:execution_alternate_state=failed
 
 name "type_does_not_report_resource_in_collection"
 rs_ca_ver 20131202

@@ -1,5 +1,8 @@
-#test:desired_state=running
-#test_operation:is_still_declaration=running
+#test:execution_state=running
+#test:execution_alternate_state=failed
+
+# TODO: Still no operations implemented
+#operation:is_still_declaration=running
 
 name "non_provisioned_resources_empty"
 rs_ca_ver 20131202

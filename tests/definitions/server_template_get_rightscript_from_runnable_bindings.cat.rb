@@ -1,8 +1,3 @@
-#test_operation:can_find_in_any=completed
-#test_operation:can_find_in_specific=completed
-#test_operation:more_than_one_st_raises=completed
-#test_operation:returns_null_when_not_found=completed
-
 name "server_template_tests"
 rs_ca_ver 20131202
 short_description "This is not an empty string"
@@ -25,21 +20,25 @@ parameter "rsb_boot_script_name" do
   default "SYS Timezone set - v13.5.3-LTS"
 end
 
+#test_operation:execution_state=completed
 operation "can_find_in_any" do
   description "Can find a specified RightScript when no runlist is supplied"
   definition "can_find_in_any"
 end
 
+#test_operation:execution_state=completed
 operation "can_find_in_specific" do
   description "Can find a specified RightScript when a specific runlist is supplied"
   definition "can_find_in_specific"
 end
 
+#test_operation:execution_state=completed
 operation "more_than_one_st_raises" do
   description "Properly raises an error when more than one st is defined"
   definition "more_than_one_st_raises"
 end
 
+#test_operation:execution_state=completed
 operation "returns_null_when_not_found" do
   description "Returns null when no RightScript is found"
   definition "returns_null_when_not_found"

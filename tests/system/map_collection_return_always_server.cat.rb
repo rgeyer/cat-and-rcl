@@ -1,4 +1,5 @@
-#test:desired_state=running
+#test:execution_state=running
+#test:execution_alternate_state=failed
 
 name "map_collection_return_always_server"
 rs_ca_ver 20131202
