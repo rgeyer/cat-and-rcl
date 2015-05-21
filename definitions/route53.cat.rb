@@ -1,4 +1,3 @@
-# $record_value, $record_ttl,
 # Make changes to a Route53 recordset
 #
 # @param $zone_id [String] The Route53 Hosted Zone ID on which to apply the recordset changes
@@ -14,11 +13,20 @@
 #     If not supplied the account credential cred:AWS_ACCESS_KEY_ID will be used
 #   * secret_key [String] an AWS_SECRET_ACCESS_KEY to use for authentication.
 #     If not supplied the account credential cred:AWS_SECRET_ACCESS_KEY will be used
+#   * raise_on_error [Bool] Whether to raise an exception if an error occurs. Default: true
+#   * wait_for_insync [Bool] Whether to wait for the change request to transition to the INSYNC status. Default: true
 #
-# @return $result [???] TODO: Haven't decided yet
+# @return $response [Hash] A hash representing the http_* response
 #
 # @see http://docs.aws.amazon.com/Route53/latest/APIReference/API_ChangeResourceRecordSets.html
 define route53_change_recordsets($zone_id, $records, $options) return $response do
+  $default_options = {
+    raise_on_error: true,
+    wait_for_insync: true
+  }
+
+  $merged_options = $options + $default_options
+
   $request_lines = []
   $comment_lines = []
   $change_lines = []
@@ -60,9 +68,9 @@ define route53_change_recordsets($zone_id, $records, $options) return $response 
 
   $request_xml = join($request_lines, "\n")
   $signature = { type: "aws" }
-  if contains?(keys($options),["access_key","secret_key"])
-    $signature["access_key"] = $options["access_key"]
-    $signature["secret_key"] = $options["secret_key"]
+  if contains?(keys($merged_options),["access_key","secret_key"])
+    $signature["access_key"] = $merged_options["access_key"]
+    $signature["secret_key"] = $merged_options["secret_key"]
   end
 
   $response = http_post(
@@ -70,4 +78,66 @@ define route53_change_recordsets($zone_id, $records, $options) return $response 
     body: $request_xml,
     signature: $signature
   )
+
+  if $response["code"] != 200
+    if $merged_options["raise_on_error"]
+      raise "Error occurred while requesting recordset change from Route53\nRequest: "+$request_xml+"\n\nResponse: "+to_s($response["body"])
+    end
+  else
+    if $merged_options["wait_for_insync"]
+      $change_id = last(split($response["body"]["ChangeResourceRecordSetsResponse"]["ChangeInfo"]["Id"], "/"))
+      sub task_name: "wait for INSYNC", timeout: 10m do
+        $insync = false;
+        $get_change_options = $merged_options
+        $get_change_options["raise_on_error"] = false
+        while $insync == false do
+          call route53_get_change($change_id, $get_change_options) retrieve $change_response
+          if $change_response["code"] != 200
+            raise "Error occurred while requesting change status from Route53\Response: "+to_s($change_response["body"])
+          else
+            if $change_response["body"]["GetChangeResponse"]["ChangeInfo"]["Status"] == "INSYNC"
+              $insync = true
+            end
+          end
+          sleep(10)
+        end
+      end
+    end
+  end
+end
+
+# Get status of a change to a Route53 recordset
+#
+# @param $change_id [String] The Route53 change id to get
+# @param $options [Hash] a hash of options where the possible keys are;
+#   * access_key [String] an AWS_ACCESS_KEY_ID to use for authentication.
+#     If not supplied the account credential cred:AWS_ACCESS_KEY_ID will be used
+#   * secret_key [String] an AWS_SECRET_ACCESS_KEY to use for authentication.
+#     If not supplied the account credential cred:AWS_SECRET_ACCESS_KEY will be used
+#   * raise_on_error [Bool] Whether to raise an exception if an error occurs. Default: true
+#
+# @return $response [Hash] A hash representing the http_* response
+#
+# @see http://docs.aws.amazon.com/Route53/latest/APIReference/API_GetChange.html
+define route53_get_change($change_id, $options) return $response do
+  $default_options = {
+    raise_on_error: true
+  }
+
+  $signature = { type: "aws" }
+  if contains?(keys($merged_options),["access_key","secret_key"])
+    $signature["access_key"] = $merged_options["access_key"]
+    $signature["secret_key"] = $merged_options["secret_key"]
+  end
+
+  $response = http_get(
+    url: "https://route53.amazonaws.com/2013-04-01/change/"+$change_id,
+    signature: $signature
+  )
+
+  if $response["code"] != 200
+    if $merged_options["raise_on_error"]
+      raise "Error occurred while requesting change status from Route53\nChange ID: "+$change_id+"\n\nResponse: "+to_s($response["body"])
+    end
+  end
 end
