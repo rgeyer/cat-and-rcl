@@ -9,7 +9,7 @@
 #
 # @return @credential [CredentialResourceCollection] the newly created
 #   credential
-define create_credential($credential_name,$credential_value,$credential_description) return @credential do
+define credential_create($credential_name,$credential_value,$credential_description) return @credential do
   $credential_params = {
     name => $credential_name,
     value => $credential_value
@@ -24,7 +24,7 @@ end
 # with the same name are found, all of them will be deleted.
 #
 # @param $credential_name [String] The name of the credential to delete
-define delete_credential($credential_name) do
+define credential_delete($credential_name) do
   @credential = find("credentials", $credential_name)
   @credential.destroy()
 end
@@ -43,7 +43,7 @@ end
 #     an empty string for none.
 #
 # @return @credential [CredentialResourceCollection] the updated credential
-define update_credential($credential_name,$update_values) return @credential do
+define credential_update($credential_name,$update_values) return @credential do
   @credential = find("credentials", $credential_name)
   @credential.update(credential: $update_values)
 end

@@ -39,16 +39,11 @@ define run_executable(@target,$options) return @tasks do
 
   $merged_options = $options + $default_options
 
-  # TODO: type() always returns just "collection" reported as line 11 in the doc
-  # https://docs.google.com/a/rightscale.com/spreadsheets/d/1zEqFvhLDygFdxm588LGrHshpBgp41xvIeqjEVigdHto/edit#gid=0
   @instances = rs.instances.empty()
-  $target_type = to_s(@target)
-  #$target_type = type(@target)
-  #if $target_type == "rs.servers"
-  if $target_type =~ "servers"
+  $target_type = type(@target)
+  if $target_type == "rs.servers"
     @instances = @target.current_instance()
-  #elsif $target_type == "rs.instances"
-  elsif $target_type =~ "instances"
+  elsif $target_type == "rs.instances"
     @instances = @target
   else
     raise "run_executable() can not operate on a collection of type "+$target_type
@@ -105,8 +100,8 @@ define run_executable(@target,$options) return @tasks do
   @tasks = @instances.run_executable($run_executable_params_hash)
 
   if $merged_options["wait_for_completion"]
-    sleep_until(@tasks.summary =~ "^(completed|failed)")
-    if @tasks.summary =~ "failed"
+    sleep_until(all?(@tasks.summary, "^(completed|failed)"))
+    if any?(@tasks.summary, "failed")
       raise "Failed to run " + to_s($run_executable_params_hash)
     end
   end
