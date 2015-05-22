@@ -47,3 +47,15 @@ define update_credential($credential_name,$update_values) return @credential do
   @credential = find("credentials", $credential_name)
   @credential.update(credential: $update_values)
 end
+
+# Fetches the value of a credential identifed by name. This is reliable since
+# the system restricts you from creating duplicate credentials with the same name
+#
+# @param $name [String] The name of the credential for which to fetch the value
+#
+# @return $value [String] The value of the credential
+define credential_get_value($name) return $value do
+  @cred = rs.credentials.get(filter: "name=="+$name, view: "sensitive")
+  $cred_object = to_object(@cred)
+  $value = first($cred_object["details"])["value"]
+end
