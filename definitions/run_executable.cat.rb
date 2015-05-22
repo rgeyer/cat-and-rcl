@@ -100,7 +100,7 @@ define run_executable(@target,$options) return @tasks do
   @tasks = @instances.run_executable($run_executable_params_hash)
 
   if $merged_options["wait_for_completion"]
-    sleep_until(all?(@tasks.summary[], "^(completed|failed)"))
+    sleep_until(all?(@tasks.summary[], "/^(completed|failed)/"))
     if any?(@tasks.summary[], "failed")
       raise "Failed to run " + to_s($run_executable_params_hash)
     end
