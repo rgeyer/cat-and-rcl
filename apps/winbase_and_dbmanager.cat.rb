@@ -181,12 +181,8 @@ define generated_launch(@server_1, @server_2, $admin_pass_param) return @server_
     "MASTER_KEY_PASSWORD": join(["text:",$master_key_pass])
   }
   @@deployment.multi_update_inputs(inputs: $inp)
-  @@global_server_1 = @server_1
-  @@global_server_2 = @server_2
-  concurrent do
-    provision(@@global_server_1)
-    provision(@@global_server_2)
+  concurrent return @server_1, @server_2 do
+    provision(@server_1)
+    provision(@server_2)
   end
-  @server_1 = @@global_server_1
-  @server_2 = @@global_server_2
 end
