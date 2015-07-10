@@ -58,24 +58,16 @@ define launch(@db, @lb1, @lb2, @app_array) return @db, @lb1, @lb2, @app_array do
 
   #@deployment.inputs().multi_update($inputs)
 
-  @@local_db = @db
-  @@local_lb1 = @lb1
-  @@local_lb2 = @lb2
-  @@local_app_array = @app_array
-  concurrent do
-    provision(@@local_db)
-    provision(@@local_lb1)
-    provision(@@local_lb2)
-    provision(@@local_app_array)
+  concurrent return @db, @lb1, @lb2, @app_array do
+    provision(@db)
+    provision(@lb1)
+    provision(@lb2)
+    provision(@app_array)
   end
 
-  call run_executable(@@local_db, {rightscript: {href: "/api/right_scripts/525054004"}}) retrieve @task
-  call run_executable(@@local_db, {rightscript: {href: "/api/right_scripts/525050004"}}) retrieve @task
+  call run_executable(@db, {rightscript: {href: "/api/right_scripts/525054004"}}) retrieve @task
+  call run_executable(@db, {rightscript: {href: "/api/right_scripts/525050004"}}) retrieve @task
 
-  @db = @@local_db
-  @lb1 = @@local_lb1
-  @lb2 = @@local_lb2
-  @app_array = @@local_app_array
 end
 
 define run_recipe(@target, $recipe_name) do

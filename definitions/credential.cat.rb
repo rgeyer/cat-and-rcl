@@ -56,6 +56,11 @@ end
 # @return $value [String] The value of the credential
 define credential_get_value($name) return $value do
   @cred = rs.credentials.get(filter: "name=="+$name, view: "sensitive")
+
+  if size(@cred) == 0
+    raise "Unable to find credential with name: " + $name
+  end
+  
   $cred_object = to_object(@cred)
   $value = first($cred_object["details"])["value"]
 end
