@@ -63,6 +63,30 @@ define sys_get_clouds_by_rel($rel) return @clouds do
   end
 end
 
+# Fetches the account id of "this" cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
+#
+# @return [String] The account ID of the current cloud app
+define sys_get_account_id() return $account_id do
+  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
+    if $current_tag =~ "(selfservice:href)"
+      $tag = $current_tag
+    end
+  end
+
+  if type($href_tag) == "array" && size($href_tag) > 0
+    $tag_split_by_value_delimiter = split(first($href_tag), "=")
+    $tag_value = last($tag_split_by_value_delimiter)
+    $value_split_by_slashes = split($tag_value, "/")
+    $account_id = $value_split_by_slashes[4]
+  else
+    $account_id = "N/A"
+  end
+
+end
+
 # Fetches the execution id of "this" cloud app using the default tags set on a
 # deployment created by SS.
 # selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
@@ -83,6 +107,94 @@ define sys_get_execution_id() return $execution_id do
     $execution_id = last($value_split_by_slashes)
   else
     $execution_id = "N/A"
+  end
+
+end
+
+# Fetches the href of "this" cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
+#
+# @return [String] The href of the current cloud app
+define sys_get_href() return $href do
+  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
+    if $current_tag =~ "(selfservice:href)"
+      $tag = $current_tag
+    end
+  end
+
+  if type($href_tag) == "array" && size($href_tag) > 0
+    $tag_split_by_value_delimiter = split(first($href_tag), "=")
+    $href = last($tag_split_by_value_delimiter)
+  else
+    $href = "N/A"
+  end
+
+end
+
+# Fetches the email/username of the user who launched "this" cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_by=foo@bar.baz
+#
+# @return [String] The email/username of the user who launched the current cloud app
+define sys_get_launched_by() return $launched_by do
+  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
+    if $current_tag =~ "(selfservice:launched_by)"
+      $tag = $current_tag
+    end
+  end
+
+  if type($href_tag) == "array" && size($href_tag) > 0
+    $tag_split_by_value_delimiter = split(first($href_tag), "=")
+    $launched_by = last($tag_split_by_value_delimiter)
+  else
+    $launched_by = "N/A"
+  end
+
+end
+
+# Fetches the name of the template "this" cloud app was launched from using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_by=foo@bar.baz
+#
+# @return [String] The name of the template used to launch the current cloud app
+define sys_get_launched_from() return $launched_from do
+  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
+    if $current_tag =~ "(selfservice:launched_from)"
+      $tag = $current_tag
+    end
+  end
+
+  if type($href_tag) == "array" && size($href_tag) > 0
+    $tag_split_by_value_delimiter = split(first($href_tag), "=")
+    $launched_from = last($tag_split_by_value_delimiter)
+  else
+    $launched_from = "N/A"
+  end
+
+end
+
+# Fetches the type of the template "this" cloud app was launched from using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_by=foo@bar.baz
+#
+# @return [String] The type of the template used to launch the current cloud app
+define sys_get_launched_from_type() return $launched_from_type do
+  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  $href_tag = map $current_tag in $tags_on_deployment return $tag do
+    if $current_tag =~ "(selfservice:launched_from)"
+      $tag = $current_tag
+    end
+  end
+
+  if type($href_tag) == "array" && size($href_tag) > 0
+    $tag_split_by_value_delimiter = split(first($href_tag), "=")
+    $launched_from = last($tag_split_by_value_delimiter)
+  else
+    $launched_from = "N/A"
   end
 
 end
