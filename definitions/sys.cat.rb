@@ -157,7 +157,7 @@ end
 
 # Fetches the name of the template "this" cloud app was launched from using the default tags set on a
 # deployment created by SS.
-# selfservice:launched_by=foo@bar.baz
+# selfservice:launched_from=foobarbaz
 #
 # @return [String] The name of the template used to launch the current cloud app
 define sys_get_launched_from() return $launched_from do
@@ -179,22 +179,22 @@ end
 
 # Fetches the type of the template "this" cloud app was launched from using the default tags set on a
 # deployment created by SS.
-# selfservice:launched_by=foo@bar.baz
+# selfservice:launched_from_type=source
 #
 # @return [String] The type of the template used to launch the current cloud app
 define sys_get_launched_from_type() return $launched_from_type do
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
-    if $current_tag =~ "(selfservice:launched_from)"
+    if $current_tag =~ "(selfservice:launched_from_type)"
       $tag = $current_tag
     end
   end
 
   if type($href_tag) == "array" && size($href_tag) > 0
     $tag_split_by_value_delimiter = split(first($href_tag), "=")
-    $launched_from = last($tag_split_by_value_delimiter)
+    $launched_from_type = last($tag_split_by_value_delimiter)
   else
-    $launched_from = "N/A"
+    $launched_from_type = "N/A"
   end
 
 end
