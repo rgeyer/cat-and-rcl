@@ -216,3 +216,17 @@ define sys_concurrent_terminate_servers_and_arrays() do
     end
   end
 end
+
+# Used as an alternative to provision(@resource), this will create the specified
+# resource, but not launch it. Intended for use with Servers and ServerArrays
+#
+# @param @resource [Server|ServerArray] the resource definition to be created,
+#   but not launched
+#
+# @return [Server|ServerArray] the created resource
+define sys_create_resource_only(@resource) return @created_resource do
+  $resource = to_object(@resource)
+  $resource_type = $resource["type"]
+  $fields = $resource["fields"]
+  @created_resource = rs.$resource_type.create($fields)
+end
