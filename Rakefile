@@ -28,10 +28,14 @@ end
 # Gets options from ~/.right_api_client/login.yml
 #
 # @return [Hash] The options in ~/.right_api_client/login.yml converted to a hash
-def get_options
+def get_options(account_id_override)
   options = YAML.load_file(
     File.expand_path("#{ENV['HOME']}/.right_api_client/login.yml")
   )
+  if !account_id_override.nil?
+    options[:account_id] = account_id_override.to_i
+  end
+  options
 end
 
 def get_list_of_includes(file)
@@ -76,8 +80,8 @@ EOF
   parent_template
 end
 
-def template_create(template_filepath,auth)
-  options = get_options()
+def template_create(template_filepath,auth,account_id_override)
+  options = get_options(account_id_override)
   create_req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates",
@@ -91,8 +95,8 @@ def template_create(template_filepath,auth)
   create_req.execute
 end
 
-def template_update(template_id,template_filepath,auth)
-  options = get_options()
+def template_update(template_id,template_filepath,auth,account_id_override)
+  options = get_options(account_id_override)
   update_req = RestClient::Request.new(
     :method => :put,
     :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/#{template_id}",
@@ -106,9 +110,12 @@ def template_update(template_id,template_filepath,auth)
   update_req.execute
 end
 
-def template_publish(template_filepath,auth)
-  options = get_options()
-  template = template_upsert(template_filepath,auth)
+def template_publish(template_filepath,auth,account_id_override)
+  options = get_options(account_id_override)
+  if !account_id_override.nil?
+    options[:account_id] = account_id_override
+  end
+  template = template_upsert(template_filepath,auth,account_id_override)
   template_id = template.split("/").last
 
   pub_req = RestClient::Request.new(
@@ -131,10 +138,13 @@ def template_publish(template_filepath,auth)
   application_href
 end
 
-def template_republish(template_filepath,auth)
+def template_republish(template_filepath,auth,account_id_override)
   application_href = ""
-  options = get_options()
-  template_id = template_upsert(template_filepath,auth).split("/").last
+  options = get_options(account_id_override)
+  if !account_id_override.nil?
+    options[:account_id] = account_id_override
+  end
+  template_id = template_upsert(template_filepath,auth,account_id_override).split("/").last
   template = file_to_str_and_validate(template_filepath)
   matches = template.match(/^name\s*"(?<name>.*)"/)
   name = matches["name"]
@@ -168,15 +178,18 @@ def template_republish(template_filepath,auth)
   application_href
 end
 
-def template_upsert(template_filepath,auth)
+def template_upsert(template_filepath,auth,account_id_override)
   template_href = ""
-  options = get_options()
+  options = get_options(account_id_override)
+  if !account_id_override.nil?
+    options[:account_id] = account_id_override
+  end
   template = preprocess_template(template_filepath)
   matches = template.match(/^name\s*"(?<name>.*)"/)
   tmp_file = matches["name"].gsub("/","-").gsub(" ","-")
   name = matches["name"]
 
-  templates = get_templates(auth)
+  templates = get_templates(auth,account_id_override)
   existing_templates = templates.select{|template| template["name"] == name }
 
   tmpfile = Tempfile.new([tmp_file,".cat.rb"])
@@ -185,10 +198,10 @@ def template_upsert(template_filepath,auth)
     tmpfile.close()
     if existing_templates.length != 0
       template_id = existing_templates.first()["id"]
-      response = template_update(template_id,tmpfile.path,auth)
+      response = template_update(template_id,tmpfile.path,auth,account_id_override)
       template_href = "/api/designer/collections/#{options[:account_id]}/templates/#{template_id}"
     else
-      response = template_create(tmpfile.path,auth)
+      response = template_create(tmpfile.path,auth,account_id_override)
       template_href = response.headers[:location]
     end
   rescue RestClient::ExceptionWithResponse => e
@@ -337,7 +350,7 @@ class BaseTest
     when "initialized"
       begin
         template = preprocess_template(@filepath)
-        response = execution_create(template, @auth)
+        response = execution_create(template, @auth, nil)
         @execution_href = response.headers[:location]
         @status = "executing"
       rescue RestClient::ExceptionWithResponse => e
@@ -506,8 +519,8 @@ end
 #
 #
 ################################################################################
-def gen_auth()
-  options = get_options()
+def gen_auth(account_id_override)
+  options = get_options(account_id_override)
   auth = {"cookie" => {}, "authorization" => {}}
 
   if options.include?(:access_token)
@@ -579,8 +592,8 @@ def gen_auth()
   raise "No auth methods found"
 end
 
-def compile_template(auth, template_source)
-  options = get_options()
+def compile_template(auth, template_source, account_id_override)
+  options = get_options(account_id_override)
   compile_req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates/actions/compile",
@@ -593,8 +606,8 @@ def compile_template(auth, template_source)
   compile_req.execute
 end
 
-def get_applications(auth)
-  options = get_options()
+def get_applications(auth, account_id_override)
+  options = get_options(null, account_id_override)
   list_app_req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}/api/catalog/catalogs/#{options[:account_id]}/applications",
@@ -605,8 +618,8 @@ def get_applications(auth)
   JSON.parse(response.body)
 end
 
-def get_templates(auth)
-  options = get_options()
+def get_templates(auth, account_id_override)
+  options = get_options(account_id_override)
   list_req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}/api/designer/collections/#{options[:account_id]}/templates",
@@ -617,8 +630,8 @@ def get_templates(auth)
   JSON.parse(response.body)
 end
 
-def get_cloudapps(auth)
-  options = get_options()
+def get_cloudapps(auth, account_id_override)
+  options = get_options(account_id_override)
   list_req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/executions",
@@ -629,8 +642,8 @@ def get_cloudapps(auth)
   JSON.parse(response.body)
 end
 
-def execution_create(template, auth, exec_options={})
-  options = get_options()
+def execution_create(template, auth, account_id_override, exec_options={})
+  options = get_options(account_id_override)
   payload = {:source => template}
   payload.merge!({:options => exec_options}) if exec_options.length != 0
   req = RestClient::Request.new(
@@ -643,8 +656,8 @@ def execution_create(template, auth, exec_options={})
   req.execute
 end
 
-def execution_get_by_href(href, auth)
-  options = get_options()
+def execution_get_by_href(href, auth, account_id_override)
+  options = get_options(account_id_override)
   req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}#{href}",
@@ -656,7 +669,7 @@ def execution_get_by_href(href, auth)
 end
 
 def execution_delete_by_href(href, auth)
-  options = get_options()
+  options = get_options(nil)
   req = RestClient::Request.new(
     :method => :delete,
     :url => "#{options[:selfservice_url]}#{href}",
@@ -666,8 +679,8 @@ def execution_delete_by_href(href, auth)
   req.execute
 end
 
-def operation_create(execution_href, operation_name, auth, op_options={})
-  options = get_options()
+def operation_create(execution_href, operation_name, auth, account_id_override, op_options={})
+  options = get_options(account_id_override)
   req = RestClient::Request.new(
     :method => :post,
     :url => "#{options[:selfservice_url]}/api/manager/projects/#{options[:account_id]}/operations",
@@ -681,8 +694,8 @@ def operation_create(execution_href, operation_name, auth, op_options={})
   req.execute
 end
 
-def operation_get_by_href(href, auth)
-  options = get_options()
+def operation_get_by_href(href, auth, account_id_override)
+  options = get_options(account_id_override)
   req = RestClient::Request.new(
     :method => :get,
     :url => "#{options[:selfservice_url]}#{href}",
@@ -706,11 +719,12 @@ end
 ################################################################################
 
 desc "Compile a template to discover any syntax errors"
-task :template_compile, [:filepath] do |t,args|
+task :template_compile, [:filepath,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
   cat_str = preprocess_template(args[:filepath])
   begin
     puts "Uploading template to SS compile_template"
-    compile_template(gen_auth(), cat_str)
+    compile_template(gen_auth(args[:account_id_override]), cat_str, args[:account_id_override])
     puts "Template compiled successfully"
   rescue RestClient::ExceptionWithResponse => e
     puts "Failed to compile template"
@@ -732,40 +746,45 @@ task :template_preprocess, [:input_filepath,:output_filepath] do |t,args|
 end
 
 desc "Upload a new template or update an existing one (based on name)"
-task :template_upsert, [:filepath] do |t,args|
-  auth = gen_auth()
-  href = template_upsert(args[:filepath],auth)
+task :template_upsert, [:filepath,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
+  href = template_upsert(args[:filepath],auth,args[:account_id_override])
   puts "Template upserted. HREF: #{href}"
 end
 
 desc "Update and publish a template (based on name)"
-task :template_publish, [:filepath] do |t,args|
-  auth = gen_auth()
-  href = template_publish(args[:filepath],auth)
+task :template_publish, [:filepath,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
+  href = template_publish(args[:filepath],auth,args[:account_id_override])
   puts "Template published. HREF: #{href}"
 end
 
 desc "Update and re-publish a template (based on name)"
-task :template_republish, [:filepath] do |t,args|
-  auth = gen_auth()
-  href = template_republish(args[:filepath],auth)
+task :template_republish, [:filepath,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
+  href = template_republish(args[:filepath],auth,args[:account_id_override])
   puts "Template published. HREF: #{href}"
 end
 
 desc "List templates"
-task :template_list do |t,args|
-  auth = gen_auth()
-  templates = get_templates(auth)
+task :template_list, [:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
+  templates = get_templates(auth,args[:account_id_override])
   puts JSON.pretty_generate(templates)
 end
 
 desc "Template Execution"
-task :template_execution, [:filepath, :option_path] do |t,args|
-  auth = gen_auth()
+task :template_execution, [:filepath,:option_path,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
   template = preprocess_template(args[:filepath])
   options = file_to_str_and_validate(args[:option_path])
   begin
-    res = execution_create(template,auth,options)
+    res = execution_create(template,auth,args[:account_id_override],options)
     puts "Execution created. HREF: #{res.headers[:location]}"
   rescue RestClient::ExceptionWithResponse => e
     puts "Failed to create execution"
@@ -774,22 +793,31 @@ task :template_execution, [:filepath, :option_path] do |t,args|
 end
 
 desc "Terminate Application"
-task :execution_terminate, [:href] do |t,args|
-  options = get_options()
-  auth = gen_auth()
-  operation_response = operation_create(options[:selfservice_url]+args[:href],"terminate",auth)
+task :execution_terminate, [:href,:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  options = get_options(args[:account_id_override])
+  auth = gen_auth(args[:account_id_override])
+  operation_response = operation_create(options[:selfservice_url]+args[:href],"terminate",auth,args[:account_id_override])
   puts "Execution Terminating. HREF: #{operation_response.headers[:location]}"
 end
 
 desc "List CloudApps"
-task :cloudapp_list do |t,args|
-  auth = gen_auth()
-  puts JSON.pretty_generate(get_cloudapps(auth))
+task :cloudapp_list, [:account_id_override] do |t,args|
+  args.with_defaults(:account_id_override => nil)
+  auth = gen_auth(args[:account_id_override])
+  puts JSON.pretty_generate(get_cloudapps(auth,args[:account_id_override]))
+end
+
+desc "Delete CloudApps"
+task :execution_delete, [:href] do |t,args|
+  auth = gen_auth(nil)
+  execution_delete_by_href(args[:href], auth)
+  puts "Execution Deleting. HREF: #{args[:href]}"
 end
 
 desc "Run Tests in the ./tests directory"
-task :test, [:tests_glob] do |t,args|
-  args.with_defaults(:tests_glob => "**/*.cat.rb")
+task :test, [:tests_glob,:account_id_override] do |t,args|
+  args.with_defaults(:tests_glob => "**/*.cat.rb", :account_id_override => nil)
   glob = File.join(File.expand_path("./tests"), args[:tests_glob])
   test_files = Dir.glob(glob)
   if test_files.length == 0
@@ -797,7 +825,7 @@ task :test, [:tests_glob] do |t,args|
     exit 0
   end
 
-  auth = gen_auth()
+  auth = gen_auth(args[:account_id_override])
 
   tests = []
   test_files.each do |test_file|
