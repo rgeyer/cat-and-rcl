@@ -1,10 +1,16 @@
+name "System Functions"
+rs_ca_ver 20160622
+package "sys/functions"
+short_description "A set of functions for system functionality"
+import "tag/functions"
+
 # Creates a simple array of the specified size.  The array contains integers
 # indexed from 1 up to the specified size
 #
 # @param $size [int] the desired number of elements in the returned array
 #
 # @return [Array] a 1 indexed array of the specified size
-define sys_get_array_of_size($size) return $array do
+define get_array_of_size($size) return $array do
   $qty = 1
   $qty_ary = []
   while $qty <= to_n($size) do
@@ -26,7 +32,7 @@ end
 #   * auditee_href [String] the auditee_href (target) for the audit entry. Default: @@deployment.href
 #
 # @see http://reference.rightscale.com/api1.5/resources/ResourceAuditEntries.html#create
-define sys_log($summary,$options) do
+define log($summary,$options) do
   $log_default_options = {
     detail: "",
     notify: "None",
@@ -34,7 +40,7 @@ define sys_log($summary,$options) do
   }
 
   $log_merged_options = $options + $log_default_options
-  rs.audit_entries.create(
+  rs_cm.audit_entries.create(
     notify: $log_merged_options["notify"],
     audit_entry: {
       auditee_href: $log_merged_options["auditee_href"],
@@ -52,13 +58,13 @@ end
 # @return [CloudResourceCollection] The clouds which have the specified relationship
 #
 # @see http://reference.rightscale.com/api1.5/media_types/MediaTypeCloud.html
-define sys_get_clouds_by_rel($rel) return @clouds do
-  @clouds = concurrent map @cloud in rs.clouds.get() return @cloud_with_rel do
+define get_clouds_by_rel($rel) return @clouds do
+  @clouds = concurrent map @cloud in rs_cm.clouds.get() return @cloud_with_rel do
     $rels = select(@cloud.links, {"rel": $rel})
     if size($rels) > 0
       @cloud_with_rel = @cloud
     else
-      @cloud_with_rel = rs.clouds.empty()
+      @cloud_with_rel = rs_cm.clouds.empty()
     end
   end
 end
@@ -68,8 +74,8 @@ end
 # selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
 #
 # @return [String] The account ID of the current cloud app
-define sys_get_account_id() return $account_id do
-  call sys_get_account_id_of_deployment(@@deployment) retrieve $account_id
+define get_account_id() return $account_id do
+  call get_account_id_of_deployment(@@deployment) retrieve $account_id
 end
 
 # Fetches the account id of any cloud app using the default tags set on a
@@ -80,7 +86,7 @@ end
 #   and return the account ID for.
 #
 # @return [String] The account ID of the cloud app for the specified deployment
-define sys_get_account_id_of_deployment(@deployment) return $account_id do
+define get_account_id_of_deployment(@deployment) return $account_id do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
@@ -103,8 +109,8 @@ end
 # selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
 #
 # @return [String] The execution ID of the current cloud app
-define sys_get_execution_id() return $execution_id do
-  call sys_get_execution_id_of_deployment(@@deployment) retrieve $execution_id
+define get_execution_id() return $execution_id do
+  call get_execution_id_of_deployment(@@deployment) retrieve $execution_id
 end
 
 # Fetches the execution id of any cloud app using the default tags set on a
@@ -115,7 +121,7 @@ end
 #   and return the execution ID for.
 #
 # @return [String] The execution ID of the cloud app for the specified deployment
-define sys_get_execution_id_of_deployment(@deployment) return $execution_id do
+define get_execution_id_of_deployment(@deployment) return $execution_id do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
@@ -139,8 +145,8 @@ end
 # selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
 #
 # @return [String] The href of the current cloud app
-define sys_get_href() return $href do
-  call sys_get_href_of_deployment(@@deployment) retrieve $href
+define get_href() return $href do
+  call get_href_of_deployment(@@deployment) retrieve $href
 end
 
 # Fetches the href of any cloud app using the default tags set on a
@@ -151,7 +157,7 @@ end
 #   and return the href for.
 #
 # @return [String] The href of the cloud app for the specified deployment
-define sys_get_href_of_deployment(@deployment) return $href do
+define get_href_of_deployment(@deployment) return $href do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
@@ -173,7 +179,7 @@ end
 # selfservice:launched_by=foo@bar.baz
 #
 # @return [String] The email/username of the user who launched the current cloud app
-define sys_get_launched_by() return $launched_by do
+define get_launched_by() return $launched_by do
   call sys_get_launched_by_of_deployment(@@deployment) retrieve $launched_by
 end
 
@@ -185,7 +191,7 @@ end
 #   and return the launched by user for.
 #
 # @return [String] The email/username of the user who launched the cloud app for the specified deployment
-define sys_get_launched_by_of_deployment(@deployment) return $launched_by do
+define get_launched_by_of_deployment(@deployment) return $launched_by do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_by)"
@@ -207,7 +213,7 @@ end
 # selfservice:launched_from=foobarbaz
 #
 # @return [String] The name of the template used to launch the current cloud app
-define sys_get_launched_from() return $launched_from do
+define get_launched_from() return $launched_from do
   call sys_get_launched_from_of_deployment(@@deployment) retrieve $launched_from
 end
 
@@ -219,7 +225,7 @@ end
 #   and return the template used to launch the cloud app that owns it.
 #
 # @return [String] The name of the template used to launch the cloud app for the specified deployment
-define sys_get_launched_from_of_deployment(@deployment) return $launched_from do
+define get_launched_from_of_deployment(@deployment) return $launched_from do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_from)"
@@ -241,8 +247,8 @@ end
 # selfservice:launched_from_type=source
 #
 # @return [String] The type of the template used to launch the current cloud app
-define sys_get_launched_from_type() return $launched_from_type do
-  call sys_get_launched_from_type_of_deployment(@@deployment) retrieve $launched_from_type
+define get_launched_from_type() return $launched_from_type do
+  call get_launched_from_type_of_deployment(@@deployment) retrieve $launched_from_type
 end
 
 # Fetches the type of the template any cloud app was launched from using the default tags set on a
@@ -253,7 +259,7 @@ end
 #   and return the type of template used to launch the cloud app that owns it.
 #
 # @return [String] The type of the template used to launch the cloud app for the specified deployment
-define sys_get_launched_from_type_of_deployment(@deployment) return $launched_from_type do
+define get_launched_from_type_of_deployment(@deployment) return $launched_from_type do
   call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_from_type)"
@@ -272,7 +278,7 @@ end
 
 # Concurrently finds and deletes all servers and arrays. Useful as a replacement
 # for auto-terminate to clean up more quickly.
-define sys_concurrent_terminate_servers_and_arrays() do
+define concurrent_terminate_servers_and_arrays() do
   concurrent do
     sub task_name:"terminate servers" do
       concurrent foreach @server in @@deployment.servers() do
@@ -295,9 +301,9 @@ end
 #   but not launched
 #
 # @return [Server|ServerArray] the created resource
-define sys_create_resource_only(@resource) return @created_resource do
+define create_resource_only(@resource) return @created_resource do
   $resource = to_object(@resource)
   $resource_type = $resource["type"]
   $fields = $resource["fields"]
-  @created_resource = rs.$resource_type.create($fields)
+  @created_resource = rs_cm.$resource_type.create($fields)
 end
