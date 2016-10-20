@@ -1,3 +1,9 @@
+name "Credential"
+rs_ca_ver 20160622
+package "credential"
+short_description "A set of helper functions for interacting with RightScale credentials. (Maybe deprecated eventually as the rs_cm namespace evolves)"
+
+
 # Creates a new RightScale Credential with the provided details
 #
 # @param $credential_name [String] The desired name of the credential.
@@ -9,7 +15,7 @@
 #
 # @return @credential [CredentialResourceCollection] the newly created
 #   credential
-define credential_create($credential_name,$credential_value,$credential_description) return @credential do
+define create($credential_name,$credential_value,$credential_description) return @credential do
   $credential_params = {
     name => $credential_name,
     value => $credential_value
@@ -17,14 +23,14 @@ define credential_create($credential_name,$credential_value,$credential_descript
   if size($credential_description) > 0
     $credential_params['description'] = $credential_description
   end
-  @credential = rs.credentials.create(credential: $credential_params)
+  @credential = rs_cm.credentials.create(credential: $credential_params)
 end
 
 # Deletes a RightScale Credential identified by name. If multiple credentials
 # with the same name are found, all of them will be deleted.
 #
 # @param $credential_name [String] The name of the credential to delete
-define credential_delete($credential_name) do
+define delete($credential_name) do
   @credential = find("credentials", $credential_name)
   @credential.destroy()
 end
@@ -43,24 +49,7 @@ end
 #     an empty string for none.
 #
 # @return @credential [CredentialResourceCollection] the updated credential
-define credential_update($credential_name,$update_values) return @credential do
+define update($credential_name,$update_values) return @credential do
   @credential = find("credentials", $credential_name)
   @credential.update(credential: $update_values)
-end
-
-# Fetches the value of a credential identifed by name. This is reliable since
-# the system restricts you from creating duplicate credentials with the same name
-#
-# @param $name [String] The name of the credential for which to fetch the value
-#
-# @return $value [String] The value of the credential
-define credential_get_value($name) return $value do
-  @cred = rs.credentials.get(filter: "name=="+$name, view: "sensitive")
-
-  if size(@cred) == 0
-    raise "Unable to find credential with name: " + $name
-  end
-  
-  $cred_object = to_object(@cred)
-  $value = first($cred_object["details"])["value"]
 end
