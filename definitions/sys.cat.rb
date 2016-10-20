@@ -69,7 +69,19 @@ end
 #
 # @return [String] The account ID of the current cloud app
 define sys_get_account_id() return $account_id do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_account_id_of_deployment(@@deployment) retrieve $account_id
+end
+
+# Fetches the account id of any cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the account ID for.
+#
+# @return [String] The account ID of the cloud app for the specified deployment
+define sys_get_account_id_of_deployment(@deployment) return $account_id do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
       $tag = $current_tag
@@ -84,7 +96,6 @@ define sys_get_account_id() return $account_id do
   else
     $account_id = "N/A"
   end
-
 end
 
 # Fetches the execution id of "this" cloud app using the default tags set on a
@@ -93,7 +104,19 @@ end
 #
 # @return [String] The execution ID of the current cloud app
 define sys_get_execution_id() return $execution_id do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_execution_id_of_deployment(@@deployment) retrieve $execution_id
+end
+
+# Fetches the execution id of any cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the execution ID for.
+#
+# @return [String] The execution ID of the cloud app for the specified deployment
+define sys_get_execution_id_of_deployment(@deployment) return $execution_id do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
       $tag = $current_tag
@@ -117,7 +140,19 @@ end
 #
 # @return [String] The href of the current cloud app
 define sys_get_href() return $href do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_href_of_deployment(@@deployment) retrieve $href
+end
+
+# Fetches the href of any cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the href for.
+#
+# @return [String] The href of the cloud app for the specified deployment
+define sys_get_href_of_deployment(@deployment) return $href do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:href)"
       $tag = $current_tag
@@ -139,7 +174,19 @@ end
 #
 # @return [String] The email/username of the user who launched the current cloud app
 define sys_get_launched_by() return $launched_by do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_launched_by_of_deployment(@@deployment) retrieve $launched_by
+end
+
+# Fetches the email/username of the user who launched any cloud app using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_by=foo@bar.baz
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the launched by user for.
+#
+# @return [String] The email/username of the user who launched the cloud app for the specified deployment
+define sys_get_launched_by_of_deployment(@deployment) return $launched_by do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_by)"
       $tag = $current_tag
@@ -161,7 +208,19 @@ end
 #
 # @return [String] The name of the template used to launch the current cloud app
 define sys_get_launched_from() return $launched_from do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_launched_from_of_deployment(@@deployment) retrieve $launched_from
+end
+
+# Fetches the name of the template any cloud app was launched from using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_from=foobarbaz
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the template used to launch the cloud app that owns it.
+#
+# @return [String] The name of the template used to launch the cloud app for the specified deployment
+define sys_get_launched_from_of_deployment(@deployment) return $launched_from do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_from)"
       $tag = $current_tag
@@ -183,7 +242,19 @@ end
 #
 # @return [String] The type of the template used to launch the current cloud app
 define sys_get_launched_from_type() return $launched_from_type do
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_get_launched_from_type_of_deployment(@@deployment) retrieve $launched_from_type
+end
+
+# Fetches the type of the template any cloud app was launched from using the default tags set on a
+# deployment created by SS.
+# selfservice:launched_from_type=source
+#
+# @param @deployment [DeploymentResourceCollection] The deployment to inspect
+#   and return the type of template used to launch the cloud app that owns it.
+#
+# @return [String] The type of the template used to launch the cloud app for the specified deployment
+define sys_get_launched_from_type_of_deployment(@deployment) return $launched_from_type do
+  call get_tags_for_resource(@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(selfservice:launched_from_type)"
       $tag = $current_tag
