@@ -93,7 +93,8 @@ def template_create(template_filepath,auth)
       :source => File.new(template_filepath, "rb")
     },
     :cookies => auth["cookie"],
-    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"]),
+    :timeout => 60
   )
   create_req.execute
 end
@@ -198,6 +199,8 @@ def template_upsert(template_filepath,auth)
       response = template_create(tmpfile.path,auth)
       template_href = response.headers[:location]
     end
+  rescue RestClient::RequestTimeout => e
+    puts "Timeout compiling template - no response from RightScale"
   rescue RestClient::ExceptionWithResponse => e
     puts "Failed to compile template"
     errors = JSON.parse(e.http_body)
