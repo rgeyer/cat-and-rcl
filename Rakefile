@@ -45,6 +45,7 @@ def get_list_of_includes(file)
   dedupe_include_list = {}
   contents = file_to_str_and_validate(file)
   contents.scan(/#include:(.*)$/).each do |include|
+    include.first.strip!
     include_filepath = File.expand_path(include.first, File.dirname(file))
     dedupe_include_list.merge!({include_filepath => include.first})
     # This merges only the new keys by doing a diff
