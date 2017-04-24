@@ -8,6 +8,7 @@ require 'logger'
 require 'formatador'
 require 'rest-client'
 
+@options
 
 ################################################################################
 # BEGIN: Helpers
@@ -28,16 +29,23 @@ end
 # Gets options from ~/.right_api_client/login.yml
 #
 # @return [Hash] The options in ~/.right_api_client/login.yml converted to a hash
-def get_options
-  options = YAML.load_file(
-    File.expand_path("#{ENV['HOME']}/.right_api_client/login.yml")
-  )
+def get_options(account_id_override=nil)
+  if @options.nil?
+    @options = YAML.load_file(
+      File.expand_path("#{ENV['HOME']}/.right_api_client/login.yml")
+    )
+    if !account_id_override.nil?
+      @options[:account_id] = account_id_override
+    end
+  end
+  @options
 end
 
 def get_list_of_includes(file)
   dedupe_include_list = {}
   contents = file_to_str_and_validate(file)
   contents.scan(/#include:(.*)$/).each do |include|
+    include.first.strip!
     include_filepath = File.expand_path(include.first, File.dirname(file))
     dedupe_include_list.merge!({include_filepath => include.first})
     # This merges only the new keys by doing a diff
@@ -86,7 +94,8 @@ def template_create(template_filepath,auth)
       :source => File.new(template_filepath, "rb")
     },
     :cookies => auth["cookie"],
-    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"])
+    :headers => {"X_API_VERSION" => "1.0"}.merge(auth["authorization"]),
+    :timeout => 60
   )
   create_req.execute
 end
@@ -191,6 +200,8 @@ def template_upsert(template_filepath,auth)
       response = template_create(tmpfile.path,auth)
       template_href = response.headers[:location]
     end
+  rescue RestClient::RequestTimeout => e
+    puts "Timeout compiling template - no response from RightScale"
   rescue RestClient::ExceptionWithResponse => e
     puts "Failed to compile template"
     errors = JSON.parse(e.http_body)
@@ -706,7 +717,8 @@ end
 ################################################################################
 
 desc "Compile a template to discover any syntax errors"
-task :template_compile, [:filepath] do |t,args|
+task :template_compile, [:filepath, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   cat_str = preprocess_template(args[:filepath])
   begin
     puts "Uploading template to SS compile_template"
@@ -732,35 +744,40 @@ task :template_preprocess, [:input_filepath,:output_filepath] do |t,args|
 end
 
 desc "Upload a new template or update an existing one (based on name)"
-task :template_upsert, [:filepath] do |t,args|
+task :template_upsert, [:filepath, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   href = template_upsert(args[:filepath],auth)
   puts "Template upserted. HREF: #{href}"
 end
 
 desc "Update and publish a template (based on name)"
-task :template_publish, [:filepath] do |t,args|
+task :template_publish, [:filepath, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   href = template_publish(args[:filepath],auth)
   puts "Template published. HREF: #{href}"
 end
 
 desc "Update and re-publish a template (based on name)"
-task :template_republish, [:filepath] do |t,args|
+task :template_republish, [:filepath, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   href = template_republish(args[:filepath],auth)
   puts "Template published. HREF: #{href}"
 end
 
 desc "List templates"
-task :template_list do |t,args|
+task :template_list, [:account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   templates = get_templates(auth)
   puts JSON.pretty_generate(templates)
 end
 
 desc "Template Execution"
-task :template_execution, [:filepath, :option_path] do |t,args|
+task :template_execution, [:filepath, :option_path, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   template = preprocess_template(args[:filepath])
   options = file_to_str_and_validate(args[:option_path])
@@ -774,21 +791,23 @@ task :template_execution, [:filepath, :option_path] do |t,args|
 end
 
 desc "Terminate Application"
-task :execution_terminate, [:href] do |t,args|
-  options = get_options()
+task :execution_terminate, [:href, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   operation_response = operation_create(options[:selfservice_url]+args[:href],"terminate",auth)
   puts "Execution Terminating. HREF: #{operation_response.headers[:location]}"
 end
 
 desc "List CloudApps"
-task :cloudapp_list do |t,args|
+task :cloudapp_list, [:account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   auth = gen_auth()
   puts JSON.pretty_generate(get_cloudapps(auth))
 end
 
 desc "Run Tests in the ./tests directory"
-task :test, [:tests_glob] do |t,args|
+task :test, [:tests_glob, :account_id_override] do |t,args|
+  get_options(args[:account_id_override])
   args.with_defaults(:tests_glob => "**/*.cat.rb")
   glob = File.join(File.expand_path("./tests"), args[:tests_glob])
   test_files = Dir.glob(glob)
